@@ -47,39 +47,76 @@ public partial class MainWindow : Window
         string targetElementTitle = _configuration["TargetElementTitle"];
         string refresh = _configuration["Refresh"];
         string id = _configuration["ID"];
+        string tableId = _configuration["TableId"];
         log.info($"开始执行....");
 
-        // 获取桌面元素作为起始点
-        AutomationElement desktop = AutomationElement.RootElement;
-        AutomationElement mainWindow = AutomationSearchHelper.FindWindowByTitle(desktop, targetWindowTitle);
+        // 查找目标窗口
+        AutomationElement mainWindow = AutomationElement.RootElement.FindFirst(
+                    TreeScope.Children,
+                    new PropertyCondition(AutomationElement.NameProperty, targetWindowTitle));
+
         if (mainWindow == null)
         {
             log.info($"找不到【{targetWindowTitle}】，请运行程序");
             return;
         }
         AutomationSearchHelper.TryActivateWindow(mainWindow, log);
-        AutomationElement targetWin = AutomationSearchHelper.FindFirstElement(mainWindow,
+
+        // 查找右边pannel
+        AutomationElement targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
             new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
-        if (targetWin == null)
+        if (targetWindow == null)
         {
             log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
             return;
         }
 
-        PrintElementInfo(mainWindow);
+         //PrintElementInfo(mainWindow);
 
-        AutomationElement refreshElement = AutomationSearchHelper.FindFirstElementById(targetWin, refresh);
-        AutomationElement subjectId = AutomationSearchHelper.FindFirstElementById(targetWin, id);
+        AutomationElement refreshElement = AutomationSearchHelper.FindFirstElementById(targetWindow, refresh);
+        AutomationElement subjectId = AutomationSearchHelper.FindFirstElementById(targetWindow, id);
 
         if (refreshElement == null)
         {
             log.info($"刷新失败! 【{subjectId.Current.Name}】请检查配置项【Refresh】");
             return;
         }
-        else if(click(refreshElement)){ 
+        else if (click(refreshElement))
+        {
             log.info($"刷新成功---ID: {subjectId.Current.Name}");
         }
-       
+
+        Thread.Sleep(1000);
+        // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
+        AutomationElement tableControl = AutomationSearchHelper.FindFirstElementById(targetWindow, tableId);
+        if (tableControl == null)
+        { 
+            log.info($"未找到 ID 为 {tableId} 的表格控件。");
+            return;
+        }
+
+        // 获取表格中的所有行
+        AutomationElementCollection rows = tableControl.FindAll(
+            TreeScope.Children,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.DataItem));
+
+        // 遍历每一行
+        foreach (AutomationElement row in rows)
+        {
+            // 获取行中的所有单元格
+            AutomationElementCollection cells = row.FindAll(
+                TreeScope.Children,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text));
+
+            // 遍历每个单元格
+            foreach (AutomationElement cell in cells)
+            {
+                // 获取单元格的文本内容
+                string cellText = cell.Current.Name;
+                log.info(cellText);
+            }
+        }
+
     }
 
     public bool click(AutomationElement element) {

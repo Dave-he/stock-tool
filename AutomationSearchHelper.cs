@@ -230,7 +230,8 @@ namespace stock_tool
 
         public static AutomationElement FindFirstElementById(AutomationElement parent, string id)
         {
-            return FindElementById(parent, id).First();
+            Condition condition = new PropertyCondition(AutomationElement.AutomationIdProperty, id);
+            return parent.FindFirst(TreeScope.Descendants, condition);
         }
 
 
