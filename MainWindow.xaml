@@ -1,0 +1,13 @@
+﻿<Window x:Class="stock_tool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:stock_tool"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="500" Width="400">
+    <Grid>
+        <Button x:Name="StartButton" Content="开始" HorizontalAlignment="Center" Margin="10,10,0,0" VerticalAlignment="Top" Width="75" Click="StartButton_Click"/>
+        <TextBox x:Name="LogTextBox" HorizontalAlignment="Left" Height="430" Margin="10,40,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="380" IsReadOnly="True"/>
+    </Grid>
+</Window>
