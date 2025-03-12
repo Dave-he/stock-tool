@@ -47,10 +47,21 @@ namespace stock_tool
                 _logBox.ScrollToEnd();
             });
 
+            file(message);
+        }
+
+        // 记录日志的方法
+        public void file(string message)
+        {
+            // 获取当前时间
+            string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            // 组合时间戳和日志消息
+            string logEntry = $"[{timestamp}] {message}";
+
             // 将日志信息写入文件
             try
             {
-                File.AppendAllText(_filePath, logEntry + Environment.NewLine);
+                File.AppendAllTextAsync(_filePath, logEntry + Environment.NewLine);
             }
             catch (Exception ex)
             {
