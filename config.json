@@ -1,4 +1,5 @@
 {
     "TargetWindowTitle": "分销系统",
-    "LogFilePath": "log/log.txt"
+    "LogFilePath": "log/log.txt",
+    "TargetElementTitle": "产品详情"
   }

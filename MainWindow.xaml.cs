@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +11,9 @@ namespace stock_tool;
 public partial class MainWindow : Window
 {
     private IConfiguration _configuration;
-    private string _logFilePath;
+    private Log log;
+
+    private static string CONFIG_FILE = "config.json";
 
     public MainWindow()
     {
@@ -22,98 +23,69 @@ public partial class MainWindow : Window
         LoadConfiguration();
 
         // 获取日志文件路径
-        _logFilePath = _configuration["LogFilePath"];
-        EnsureLogDirectoryExists();
+        string logFilePath = _configuration["LogFilePath"];
+        log = new Log(this, LogTextBox, logFilePath);
+        log.info($"程序启动.... \n读取配置: {File.ReadAllText(CONFIG_FILE)}");
     }
 
     private void LoadConfiguration()
     {
         _configuration = new ConfigurationBuilder()
            .SetBasePath(Directory.GetCurrentDirectory())
-           .AddJsonFile("config.json", optional: false, reloadOnChange: true)
+           .AddJsonFile(CONFIG_FILE, optional: false, reloadOnChange: true)
            .Build();
     }
 
-    // 确保日志目录存在
-    private void EnsureLogDirectoryExists()
-    {
-        string logDirectory = Path.GetDirectoryName(_logFilePath);
-        if (!Directory.Exists(logDirectory))
-        {
-            Directory.CreateDirectory(logDirectory);
-        }
-    }
-
-    // 根据窗口标题查找窗口
-    private AutomationElement FindWindowByTitle(string windowTitle)
-    {
-        System.Windows.Automation.Condition condition = new PropertyCondition(AutomationElement.NameProperty, windowTitle);
-        return AutomationElement.RootElement.FindFirst(TreeScope.Children, condition);
-    }
-
-    // 查找子窗口和窗口元素
-    private void FindChildElements(AutomationElement parentElement)
-    {
-        System.Windows.Automation.Condition allCondition = new PropertyCondition(AutomationElement.IsEnabledProperty, true);
-        AutomationElementCollection childElements = parentElement.FindAll(TreeScope.Children, allCondition);
-
-        foreach (AutomationElement childElement in childElements)
-        {
-            string elementName = childElement.Current.Name;
-            string elementClass = childElement.Current.ClassName;
-            LogMessage($"找到子元素：名称={elementName}，类名={elementClass}");
-        }
-    }
-
-    // 记录日志的方法
-    private void LogMessage(string message)
-    {
-        // 获取当前时间
-        string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        // 组合时间戳和日志消息
-        string logEntry = $"[{timestamp}] {message}";
-
-        // 在 UI 线程中更新 TextBox 的内容
-        this.Dispatcher.Invoke(() =>
-        {
-            // 将日志信息添加到 TextBox 中
-            LogTextBox.Text += logEntry + Environment.NewLine;
-            // 滚动到 TextBox 的底部，确保最新日志可见
-            LogTextBox.ScrollToEnd();
-        });
-
-        // 将日志信息写入文件
-        try
-        {
-            File.AppendAllText(_logFilePath, logEntry + Environment.NewLine);
-        }
-        catch (Exception ex)
-        {
-            // 处理文件写入异常
-            MessageBox.Show($"写入日志文件时出错: {ex.Message}");
-        }
-    }
-
+ 
     // 开始按钮点击事件处理方法
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
         // 获取配置项
         string targetWindowTitle = _configuration["TargetWindowTitle"];
+        string targetElementTitle = _configuration["TargetElementTitle"];
+        log.info($"开始执行....");
 
-        LogMessage($"开始搜索目标窗口：{targetWindowTitle}");
-
-        // 查找目标窗口
-        AutomationElement targetWindow = FindWindowByTitle(targetWindowTitle);
-        if (targetWindow != null)
+        // 获取桌面元素作为起始点
+        AutomationElement desktop = AutomationElement.RootElement;
+        AutomationElement mainWindow= AutomationSearchHelper.FindWindowByTitle(desktop, targetWindowTitle);
+        if (mainWindow == null)
         {
-            LogMessage("找到目标窗口！");
-
-            // 获取子窗口和窗口元素
-            FindChildElements(targetWindow);
+            log.info($"找不到【{targetWindowTitle}】，请运行程序");
+            return;
         }
-        else
+      
+        PrintElementInfo(AutomationSearchHelper.FindElements(mainWindow, 
+            new PropertyCondition(AutomationElement.IsEnabledProperty, true)));
+
+        AutomationElement targetWin = AutomationSearchHelper.FindFirstElement(mainWindow,
+            new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
+        if (targetWin == null)
         {
-            LogMessage("未找到目标窗口！");
+            log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
+            return;
+        }
+
+
+        PrintElementInfo(AutomationSearchHelper.FindElements(targetWin));
+
+    }
+
+
+    /// <summary>
+    /// 打印元素的关键参数
+    /// </summary>
+    /// <param name="elements">元素列表</param>
+    public void PrintElementInfo(List<AutomationElement> elements)
+    {
+        foreach (AutomationElement element in elements)
+        {
+            log.info("----------------------");
+            log.info($"元素名称: {element.Current.Name}");
+            log.info($"元素类名: {element.Current.ClassName}");
+            log.info($"元素控制类型: {element.Current.ControlType.ProgrammaticName}");
+            log.info($"元素自动化 ID: {element.Current.AutomationId}");
+            log.info($"元素是否启用: {element.Current.IsEnabled}");
+            log.info($"元素是否可见: {element.Current.IsOffscreen}");
         }
     }
 }
