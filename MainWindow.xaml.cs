@@ -1,12 +1,7 @@
 ﻿using System.IO;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Controls;
-using System.Xml.Linq;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileSystemGlobbing;
-using System.Windows.Forms;
 
 namespace stock_tool;
 
@@ -49,20 +44,18 @@ public partial class MainWindow : Window
             : int.Parse(_configuration[config]) * 1080 / height);
     }
 
- 
-    // 开始按钮点击事件处理方法
-    private void StartButton_Click(object sender, RoutedEventArgs e)
+    private void StartAll_Click(object sender, RoutedEventArgs e)
     {
-        log.info($"开始执行....");
+        log.info("开始处理所有....");
         // 获取配置项
         string targetWindowTitle = _configuration["TargetWindowTitle"];
         string targetElementTitle = _configuration["TargetElementTitle"];
-  
+
         // 查找目标窗口
         AutomationElement mainWindow = AutomationElement.RootElement.FindFirst(
                     TreeScope.Children,
                     new PropertyCondition(AutomationElement.NameProperty, targetWindowTitle));
-     
+
         if (mainWindow == null)
         {
             log.info($"找不到【{targetWindowTitle}】，请运行程序");
@@ -78,11 +71,24 @@ public partial class MainWindow : Window
             log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
             return;
         }
+        
+        while (targetWindow != null) {
+            ProcessSingle(mainWindow, targetWindow);
+            AutomationSearchHelper.TryActivateWindow(mainWindow, log);
+            Thread.Sleep(500);
+            targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
+                new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
+        }
+    }
+
+    private void ProcessSingle(AutomationElement mainWindow, AutomationElement targetWindow) {
+        log.info("开始执行....");
+        
         // 假设要点击窗口内的坐标 (100, 200)，可根据实际情况修改
 
 
         int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
-        int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false); 
+        int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
 
         MouseSimulator.Click(x, y);
         log.info($"点击刷新图标 x:{x} y:{y}");
@@ -106,17 +112,19 @@ public partial class MainWindow : Window
         if (tableControl == null)
         {
             log.info($"未找到 ID 为 {productId.Current.Name} 的表格控件。");
-       
-        } else {
+
+        }
+        else
+        {
             max(mainWindow);
             Thread.Sleep(500);
             ScrollToControl scroll = new ScrollToControl();
             Point? matchResult = scroll.FindImageInElement(targetWindow, "stock.png");
             if (matchResult.HasValue)
             {
-                Point p =  matchResult.Value;
+                Point p = matchResult.Value;
                 log.info($"匹配成功，坐标：{p}");
-              
+
                 PutStock((int)p.X, (int)p.Y);
             }
             else
@@ -135,7 +143,39 @@ public partial class MainWindow : Window
 
         int close_x = (int)subject.Current.BoundingRectangle.Right + ConvertFromConfig("CloseDiff", false);
         MouseSimulator.Click(close_x, y);
-        log.info($"点击刷新图标 x:{x} y:{y}");
+        log.info($"点击关闭图标 x:{x} y:{y}");
+    }
+
+
+    // 开始按钮点击事件处理方法
+    private void StartButton_Click(object sender, RoutedEventArgs e)
+    {
+
+        // 获取配置项
+        string targetWindowTitle = _configuration["TargetWindowTitle"];
+        string targetElementTitle = _configuration["TargetElementTitle"];
+
+        // 查找目标窗口
+        AutomationElement mainWindow = AutomationElement.RootElement.FindFirst(
+                    TreeScope.Children,
+                    new PropertyCondition(AutomationElement.NameProperty, targetWindowTitle));
+
+        if (mainWindow == null)
+        {
+            log.info($"找不到【{targetWindowTitle}】，请运行程序");
+            return;
+        }
+        AutomationSearchHelper.TryActivateWindow(mainWindow, log);
+
+        // 查找右边pannel
+        AutomationElement targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
+            new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
+        if (targetWindow == null)
+        {
+            log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
+            return;
+        }
+        ProcessSingle(mainWindow, targetWindow);
     }
 
     private void PutStock(int x, int y) {

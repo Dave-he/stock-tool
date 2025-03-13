@@ -55,6 +55,7 @@ namespace stock_tool
 
         public System.Windows.Point? FindImageInElement(AutomationElement element, string filePath)
         {
+            MouseSimulator.ClickElementCenter(element);
             int attempts = 0;
             bool isScrollingDown = true;
             Image<Bgr, byte> template = new Image<Bgr, byte>(filePath);

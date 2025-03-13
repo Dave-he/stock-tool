@@ -7,12 +7,26 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-  </PropertyGroup>
+   
+    <!-- 核心：单文件模式 -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- 包含运行时（可选，按需） -->
+    <SelfContained>true</SelfContained>
 
+    <!-- 包含原生库（如 WPF 依赖） -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- 优化启动速度 -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  
+  
   <ItemGroup>
     <PackageReference Include="Emgu.CV" Version="4.10.0.5680" />
     <PackageReference Include="Emgu.CV.Bitmap" Version="4.10.0.5680" />
     <PackageReference Include="Emgu.CV.runtime.windows" Version="4.10.0.5680" />
+    <PackageReference Include="ilmerge" Version="3.0.41" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.3" />
   </ItemGroup>
 
