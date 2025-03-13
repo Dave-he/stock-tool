@@ -10,6 +10,8 @@
   "RefreshTop": "20",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "10", //关闭按钮和产品编号最右边距离
-  "StockHeight": "100",
+  "XOffset": "10", //点击右键菜单
+  "YOffset": "100", //库存图到单元格距离
+ 
   "Num": "80-100" //库存数（填‘80’固定数， ‘80-100’范围随机）
 }

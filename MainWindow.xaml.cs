@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Xml.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileSystemGlobbing;
+using System.Windows.Forms;
 
 namespace stock_tool;
 
@@ -40,6 +41,14 @@ public partial class MainWindow : Window
            .Build();
     }
 
+    private int ConvertFromConfig(string config, bool isWidth) {
+      
+        double width = SystemParameters.PrimaryScreenWidth;   // 逻辑宽度（像素）
+        double height = SystemParameters.PrimaryScreenHeight; // 逻辑高度（像素）
+        return (int)(isWidth ? int.Parse(_configuration[config]) * 1920 / width
+            : int.Parse(_configuration[config]) * 1080 / height);
+    }
+
  
     // 开始按钮点击事件处理方法
     private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -70,8 +79,10 @@ public partial class MainWindow : Window
             return;
         }
         // 假设要点击窗口内的坐标 (100, 200)，可根据实际情况修改
-        int x = (int)targetWindow.Current.BoundingRectangle.Right - int.Parse(_configuration["RefreshRight"]);
-        int y = (int)targetWindow.Current.BoundingRectangle.Top + int.Parse(_configuration["RefreshTop"]);
+
+
+        int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
+        int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false); 
 
         MouseSimulator.Click(x, y);
         log.info($"点击刷新图标 x:{x} y:{y}");
@@ -80,7 +91,7 @@ public partial class MainWindow : Window
         AutomationElement productId = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 5, 500);
         AutomationElement subject = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Subject"]), 5, 500);
         AutomationElement submit = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Submit"]), 5, 500);
-        if (submit == null)
+        if (submit == null || subject == null)
         {
             log.info($"刷新失败! 请检查配置项【Refresh】");
             return;
@@ -100,29 +111,59 @@ public partial class MainWindow : Window
             max(mainWindow);
             Thread.Sleep(500);
             ScrollToControl scroll = new ScrollToControl();
-            System.Drawing.Point? matchResult = scroll.FindImageInElement(targetWindow, "stock.png");
+            Point? matchResult = scroll.FindImageInElement(targetWindow, "stock.png");
             if (matchResult.HasValue)
             {
-                log.info($"匹配成功，坐标：{matchResult.Value}");
+                Point p =  matchResult.Value;
+                log.info($"匹配成功，坐标：{p}");
+              
+                PutStock((int)p.X, (int)p.Y);
             }
             else
             {
                 log.info("未找到匹配图像");
             }
-
-          
-            //)
-            //try
-            //{
-            //    // 执行滑动屏幕操作
-            //    ScrollToControl.ScrollToShowElement(targetWindow, tableControl);
-            //}
-            //catch (Exception ex)
-            //{
-            //    log.info($"滚动时发生错误: {ex.Message}");
-            //}
         }
+
+        //MouseSimulator.ClickElementCenter(submit);
+        log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
+        Thread.Sleep(500);
+        StockInput.PressY();
+        Thread.Sleep(500);
+        StockInput.PressY();
+        Thread.Sleep(500);
+
+        int close_x = (int)subject.Current.BoundingRectangle.Right + ConvertFromConfig("CloseDiff", false);
+        MouseSimulator.Click(close_x, y);
+        log.info($"点击刷新图标 x:{x} y:{y}");
     }
+
+    private void PutStock(int x, int y) {
+        double width = SystemParameters.PrimaryScreenWidth;   // 逻辑宽度（像素）
+        double height = SystemParameters.PrimaryScreenHeight; // 逻辑高度（像素）
+        int x_offset = ConvertFromConfig("XOffset", true); 
+        int y_offset = ConvertFromConfig("YOffset", false);
+
+        // 生成20 - 100之间的随机数
+        string num = _configuration["Num"];
+             int randomNumber = 100;
+        if (num.Contains("-"))
+        {
+           string[] split =  num.Split("-");
+            int min = int.Parse(split[0]);
+            int max = int.Parse(split[1]);
+            if (min > max)
+            {
+                int temp = min;
+                min = max;
+                max = temp;
+            }
+            randomNumber = new Random().Next(min, max);
+            num = randomNumber.ToString();
+        }
+        StockInput.Input(x, y, num, y_offset, x_offset);
+    }
+
 
     private void max(AutomationElement targetWindow) {
         // 检查窗口是否支持窗口模式切换

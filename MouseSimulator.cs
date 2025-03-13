@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows.Automation;
+using System.Windows.Input;
 
 namespace stock_tool;
 
@@ -31,6 +32,30 @@ public static class MouseSimulator
     {
         SetCursorPos(x, y);
         mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+        Thread.Sleep(100);
+    }
+
+    public static void ClickRight(int x, int y)
+    {
+        SetCursorPos(x, y);
+        mouse_event(MOUSEEVENTF_RIGHTDOWN | MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+        Thread.Sleep(100);
+    }
+
+    public static void MouseClick(bool left, int x, int y)
+    {
+        if(left) { 
+            mouse_event(MOUSEEVENTF_LEFTDOWN, x, y, 0, 0);
+            mouse_event(MOUSEEVENTF_LEFTUP, x, y, 0, 0);
+        } 
+        else { 
+          
+            mouse_event(MOUSEEVENTF_RIGHTDOWN, x, y, 0, 0);
+            mouse_event(MOUSEEVENTF_RIGHTUP, x, y, 0, 0);
+             
+        }
+        // 稍微延迟一下，确保操作生效
+        Thread.Sleep(100);
     }
 
     static void RightClickAtPoint(int x, int y)
@@ -41,10 +66,12 @@ public static class MouseSimulator
         mouse_event(MOUSEEVENTF_RIGHTDOWN, x, y, 0, 0);
         // 模拟鼠标右键释放
         mouse_event(MOUSEEVENTF_RIGHTUP, x, y, 0, 0);
+        Thread.Sleep(100);
     }
 
     public static void Move(int x, int y) {
         SetCursorPos(x, y);
+        Thread.Sleep(100);
     }
 
     public static void ScrollWindow(bool isScrollingDown)

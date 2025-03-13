@@ -1,13 +1,10 @@
 ﻿
 using System.Windows.Automation;
-using static System.Windows.Rect;
-using System.Drawing;
 using Emgu.CV.CvEnum;
-using Emgu.CV.Reg;
 using Emgu.CV.Structure;
 using Emgu.CV;
-using System.Threading.Tasks;
-using System.Drawing.Imaging;
+using System.Windows;
+using System.Drawing;
 
 namespace stock_tool
 {
@@ -19,7 +16,44 @@ namespace stock_tool
         private const int MaxScrollAttempts = 40;
         private const int ScrollWaitMs = 500;
 
-        public Point? FindImageInElement(AutomationElement element, string filePath)
+        public void ScrollWindowUntilTargetVisible(AutomationElement window, AutomationElement target)
+        {
+            try
+            {
+
+                // 获取窗口和目标元素的矩形区域
+                Rect windowRect = window.Current.BoundingRectangle;
+                Rect targetRect = target.Current.BoundingRectangle;
+
+                int attempts = 0;
+                // 检查目标元素是否已经在窗口内
+                while (!IsElementVisibleInWindow(windowRect, targetRect) && attempts < MaxScrollAttempts)
+                {
+                    // 执行滚动操作
+                    ScrollElement(window, false);
+                    // 更新窗口和目标元素的矩形区域
+                    windowRect = window.Current.BoundingRectangle;
+                    targetRect = target.Current.BoundingRectangle;
+                    
+                }
+
+                if (!IsElementVisibleInWindow(windowRect, targetRect))
+                {
+                    Console.WriteLine("目标元素已在窗口内可见。");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"滚动过程中出现错误: {ex.Message}");
+            }
+        }
+
+        static bool IsElementVisibleInWindow(Rect windowRect, Rect elementRect)
+        {
+            return windowRect.IntersectsWith(elementRect);
+        }
+
+        public System.Windows.Point? FindImageInElement(AutomationElement element, string filePath)
         {
             int attempts = 0;
             bool isScrollingDown = true;
@@ -36,14 +70,14 @@ namespace stock_tool
                 if (screenShot == null) return null;
 
                 // 执行模板匹配
-                Point? matchPoint = PerformTemplateMatch(screenShot, template);
+                System.Windows.Point? matchPoint = PerformTemplateMatch(screenShot, template);
                 if (matchPoint.HasValue)
                 {
                     // 释放资源
                     screenShot.Dispose();
                  
                     template.Dispose();
-                    return new Point(
+                    return new System.Windows.Point(
                         (int)(matchPoint.Value.X + elementRect.X),
                         (int)(matchPoint.Value.Y + elementRect.Y)
                     );
@@ -73,13 +107,13 @@ namespace stock_tool
             try
             {
                 // 创建一个 Bitmap 对象用于存储屏幕截图
-                Bitmap screenBitmap = new Bitmap(rect.Width, rect.Height);
+                Bitmap screenBitmap = new Bitmap( rect.Width, rect.Height);
 
                 // 创建一个 Graphics 对象，用于从屏幕复制图像到 Bitmap 中
                 using (Graphics g = Graphics.FromImage(screenBitmap))
                 {
                     // 从指定的屏幕区域复制图像到 Bitmap 中
-                    g.CopyFromScreen(rect.X, rect.Y, 0, 0, rect.Size);
+                    g.CopyFromScreen(rect.Top, rect.Left, 0, 0, rect.Size);
                 }
                 // 将 Bitmap 转换为三维字节数组
                 byte[,,] byteArray = BitmapToByteArray(screenBitmap);
@@ -116,20 +150,20 @@ namespace stock_tool
             return byteArray;
         }
 
-        private Point? PerformTemplateMatch(Image<Bgr, byte> source, Image<Bgr, byte> template)
+        private System.Windows.Point? PerformTemplateMatch(Image<Bgr, byte> source, Image<Bgr, byte> template)
         {
             Mat result = new Mat();
             CvInvoke.MatchTemplate(source, template, result, TemplateMatchingType.CcoeffNormed);
 
             double minVal= 0.0, maxVal = 0.0;
-            Point minLoc = new Point(), maxLoc = new Point();
+            System.Drawing.Point minLoc = new System.Drawing.Point(), maxLoc = new System.Drawing.Point();
             CvInvoke.MinMaxLoc(result, ref minVal, ref maxVal, ref minLoc, ref maxLoc);
 
             if (maxVal >= MatchThreshold)
             {
-                int centerX = maxLoc.X + template.Width / 2;
-                int centerY = maxLoc.Y + template.Height / 2;
-                return new Point(centerX, centerY);
+                int centerX = (int)( maxLoc.X + template.Width / 2);
+                int centerY = (int)(maxLoc.Y + template.Height / 2);
+                return new System.Windows.Point(centerX, centerY);
             }
 
             return null;
@@ -139,7 +173,7 @@ namespace stock_tool
         private void ScrollElement(AutomationElement element, bool isScrollingDown)
         {
             // 获取元素中心点
-            Rectangle rect = ConvertWpfRectToDrawingRectangle(element.Current.BoundingRectangle);
+            Rect rect = element.Current.BoundingRectangle;
             int centerX = (int)(rect.X + rect.Width / 2);
             int centerY = (int)(rect.Y + rect.Height / 2);
 
@@ -152,7 +186,7 @@ namespace stock_tool
 
 
         // 执行面板滚动操作
-        private static async Task ScrollPanelAsync(Point panelCenter, bool isScrollingDown)
+        private static async Task ScrollPanelAsync(System.Windows.Point panelCenter, bool isScrollingDown)
         {
             await Task.Run(() =>
             {
@@ -173,6 +207,12 @@ namespace stock_tool
 
             // 创建并返回 System.Drawing.Rectangle 对象
             return new System.Drawing.Rectangle(x, y, width, height);
+        }
+
+        static System.Windows.Point ConvertToWpfPoint(System.Drawing.Point drawingPoint)
+        {
+            // 创建一个新的 System.Windows.Point 实例，并将 System.Drawing.Point 的 X 和 Y 值赋给它
+            return new System.Windows.Point(drawingPoint.X, drawingPoint.Y);
         }
 
     }
