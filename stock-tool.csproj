@@ -17,17 +17,16 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- 优化启动速度 -->
     <PublishReadyToRun>true</PublishReadyToRun>
-
+    <EnableControlFlowGuard>false</EnableControlFlowGuard>
     <ApplicationIcon>icon.ico</ApplicationIcon>
+
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   
   
   <ItemGroup>
-    <PackageReference Include="Emgu.CV" Version="4.10.0.5680" />
-    <PackageReference Include="Emgu.CV.Bitmap" Version="4.10.0.5680" />
-    <PackageReference Include="Emgu.CV.runtime.windows" Version="4.10.0.5680" />
-    <PackageReference Include="ilmerge" Version="3.0.41" />
+
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.3" />
   </ItemGroup>
-
+ 
 </Project>

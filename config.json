@@ -6,12 +6,9 @@
   "TableId": "vtbl",
   "Submit": "btnSubmit1",
   "Group": "lblGroup",
-  "RefreshRight": "60", //刷新图标偏移量
+  "RefreshRight": "55", //刷新图标偏移量
   "RefreshTop": "20",
+  "StockRight": "110",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "10", //关闭按钮和产品编号最右边距离
-  "XOffset": "10", //点击右键菜单
-  "YOffset": "100", //库存图到单元格距离
-
-  "Num": "80-100" //库存数（填‘80’固定数， ‘80-100’范围随机）
 }

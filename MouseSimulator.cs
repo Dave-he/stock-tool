@@ -22,7 +22,7 @@ public static class MouseSimulator
     private const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
 
     private const uint MOUSEEVENTF_WHEEL = 0x0800;
-    private const int WHEEL_DELTA = 120;
+    private const int WHEEL_DELTA = 300;
     /// <summary>
     /// 模拟鼠标左键点击指定坐标
     /// </summary>
@@ -77,6 +77,7 @@ public static class MouseSimulator
     public static void ScrollWindow(bool isScrollingDown)
     {
         mouse_event(MOUSEEVENTF_WHEEL, 0, 0, isScrollingDown ? WHEEL_DELTA : -WHEEL_DELTA, 0);
+        Thread.Sleep(100);
     }
 
     /// <summary>

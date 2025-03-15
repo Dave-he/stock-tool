@@ -75,7 +75,7 @@ public partial class MainWindow : Window
         while (targetWindow != null) {
             ProcessSingle(mainWindow, targetWindow);
             AutomationSearchHelper.TryActivateWindow(mainWindow, log);
-            Thread.Sleep(500);
+            Thread.Sleep(1000);
             targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
                 new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
         }
@@ -94,10 +94,10 @@ public partial class MainWindow : Window
         log.info($"点击刷新图标 x:{x} y:{y}");
         Thread.Sleep(500);
         //PrintElementInfo(mainWindow);
-        AutomationElement productId = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 5, 500);
-        AutomationElement subject = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Subject"]), 5, 500);
-        AutomationElement submit = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Submit"]), 5, 500);
-        if (submit == null || subject == null)
+        AutomationElement productId = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 5, 1000);
+        AutomationElement subject = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Subject"]), 5, 1000);
+        //AutomationElement submit = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Submit"]), 5, 1000);
+        if (subject == null)
         {
             log.info($"刷新失败! 请检查配置项【Refresh】");
             return;
@@ -106,35 +106,19 @@ public partial class MainWindow : Window
         {
             log.info($"刷新成功---ID: {productId.Current.Name}");
         }
+
+        for(int i = 0; i< )
+        int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
+
+        MouseSimulator.Click(stock, y);
+        log.info($"点击库存图标 x:{x} y:{y}");
+
+        //ScrollToControl scroll = new ScrollToControl();
         // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
-        //AutomationElement productControl = AutomationSearchHelper.FindFirstElementById(targetWindow, productId.Current.Name);
-        AutomationElement tableControl = AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["TableId"]);
-        if (tableControl == null)
-        {
-            log.info($"未找到 ID 为 {productId.Current.Name} 的表格控件。");
-
-        }
-        else
-        {
-            max(mainWindow);
-            Thread.Sleep(500);
-            ScrollToControl scroll = new ScrollToControl();
-            Point? matchResult = scroll.FindImageInElement(targetWindow, "stock.png");
-            if (matchResult.HasValue)
-            {
-                Point p = matchResult.Value;
-                log.info($"匹配成功，坐标：{p}");
-
-                PutStock((int)p.X, (int)p.Y);
-            }
-            else
-            {
-                log.info("未找到匹配图像");
-            }
-        }
-
+      
+        //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
         //MouseSimulator.ClickElementCenter(submit);
-        log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
+        //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
         Thread.Sleep(500);
         StockInput.PressY();
         Thread.Sleep(500);
@@ -144,6 +128,33 @@ public partial class MainWindow : Window
         int close_x = (int)subject.Current.BoundingRectangle.Right + ConvertFromConfig("CloseDiff", false);
         MouseSimulator.Click(close_x, y);
         log.info($"点击关闭图标 x:{x} y:{y}");
+    }
+
+    private int GetMaxCount(AutomationElement targetElement) {
+
+        try
+        {
+            // 假设 MaxCount 是自定义属性，你需要先注册该属性
+            AutomationProperty maxCountProperty = AutomationProperty.Register("MaxCountProperty", "MaxCount");
+
+            // 获取属性值
+            object maxCountValue = targetElement.GetCurrentPropertyValue(maxCountProperty);
+
+            if (maxCountValue != AutomationElement.NotSupported)
+            {
+                Console.WriteLine($"MaxCount 属性值是: {maxCountValue}");
+                return (int)maxCountValue;
+            }
+            else
+            {
+                Console.WriteLine("不支持 MaxCount 属性。");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"获取属性时发生错误: {ex.Message}");
+        }
+        return 0;
     }
 
 
