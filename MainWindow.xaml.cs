@@ -34,7 +34,8 @@ public partial class MainWindow : Window
     // 用于控制按钮点击处理是否继续的标志
     private static volatile bool _isProcessing = true;
 
-
+    private DateTime lastClickTime = DateTime.MinValue;
+    private const int clickInterval = 2000; // 点击间隔时间，单位为毫秒
     public MainWindow()
     {
         InitializeComponent();
@@ -131,6 +132,13 @@ public partial class MainWindow : Window
 
     private void StartAll_Click(object sender, RoutedEventArgs e)
     {
+        DateTime now = DateTime.Now;
+        if ((now - lastClickTime).TotalMilliseconds < clickInterval)
+        {
+            log.info($"请{clickInterval / 1000}秒后重试");
+            return;
+        }
+
         log.info("开始处理所有....");
         // 获取配置项
         string targetWindowTitle = _configuration["TargetWindowTitle"];
@@ -149,8 +157,10 @@ public partial class MainWindow : Window
         AutomationSearchHelper.TryActivateWindow(mainWindow, log);
 
         // 查找右边pannel
-        AutomationElement targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
+        AutomationElement targetWindow = mainWindow.FindFirst(TreeScope.Descendants,
             new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
+
+      
         if (targetWindow == null)
         {
             log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
@@ -167,11 +177,7 @@ public partial class MainWindow : Window
 
         int maxCount = GetMaxCount(mainWindow);
         ProcessSingle(mainWindow, targetWindow, maxCount);
-        int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
-        int close_x = x + ConvertFromConfig("CloseDiff", false);
-        int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
-        MouseSimulator.Click(close_x, y);
-        log.info($"点击关闭图标 x:{x} y:{y}");
+       
     }
 
     private void ProcessSingle(AutomationElement mainWindow, AutomationElement targetWindow, int time = 0) {
@@ -227,7 +233,7 @@ public partial class MainWindow : Window
                     StockInput.PressY();
                     Thread.Sleep(500);
                     StockInput.PressEnter();
-                    Thread.Sleep( int.Parse(_configuration["c"]) *1000);
+                    Thread.Sleep(int.Parse(_configuration["WaitSeconds"]));
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
                     //if (element != null)
@@ -250,9 +256,15 @@ public partial class MainWindow : Window
                 }
 
             }
+
+            //int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
+            int close_x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("CloseDiff", true);
+            //int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
+            MouseSimulator.Click(close_x, y);
+            log.info($"点击关闭图标 x:{x} y:{y}");
         });
     
-       
+ 
     }
 
     private int GetMaxCount(AutomationElement mainWindow) {
@@ -272,6 +284,15 @@ public partial class MainWindow : Window
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
 
+        DateTime now = DateTime.Now;
+        if ((now - lastClickTime).TotalMilliseconds < clickInterval)
+        {
+            log.info($"请{clickInterval / 1000}秒后重试");
+            return;
+        }
+
+        lastClickTime = now;
+
         // 获取配置项
         string targetWindowTitle = _configuration["TargetWindowTitle"];
         string targetElementTitle = _configuration["TargetElementTitle"];
@@ -289,7 +310,7 @@ public partial class MainWindow : Window
         AutomationSearchHelper.TryActivateWindow(mainWindow, log);
 
         // 查找右边pannel
-        AutomationElement targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
+        AutomationElement targetWindow = mainWindow.FindFirst(TreeScope.Descendants,
             new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
         if (targetWindow == null)
         {
