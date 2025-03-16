@@ -11,4 +11,5 @@
   "StockRight": "110",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "10", //关闭按钮和产品编号最右边距离
+  "WaitSeconds": "1"
 }

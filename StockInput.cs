@@ -39,6 +39,10 @@ public class StockInput
         PressKey(CharToVirtualKey('y'));
     }
 
+    public static void PressEnter() {
+        PressKey(0x0D);
+    }
+
     // 模拟按键
      static void PressKey(byte keyCode)
     {

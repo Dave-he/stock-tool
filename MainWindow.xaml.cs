@@ -200,54 +200,59 @@ public partial class MainWindow : Window
             log.info($"刷新成功---ID: {productId.Current.Name}");
         }
 
+        Task.Run(() =>
+        {
+            for (int i = 0; i <= time; i++)
+            {
+                if (!_isProcessing)
+                {
+                    // 如果标志为 false，终止处理
+                    return;
+                }
+                try
+                {
+               
+                    int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
+
+                    MouseSimulator.Click(stock, y);
+                    log.info($"点击库存图标 x:{x} y:{y}");
+
+                    //ScrollToControl scroll = new ScrollToControl();
+                    // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
+
+                    //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
+                    //MouseSimulator.ClickElementCenter(submit);
+                    //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
+                    Thread.Sleep(1000);
+                    StockInput.PressY();
+                    Thread.Sleep(500);
+                    StockInput.PressEnter();
+                    Thread.Sleep( int.Parse(_configuration["c"]) *1000);
+
+                    //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
+                    //if (element != null)
+                    //{
+                    //    AutomationElement yes = AutomationSearchHelper.FindFirstElementByName(mainWindow, "确定");
+                    //    // 检查按钮是否支持 Invoke 模式（即可点击）
+                    //    if (yes.TryGetCurrentPattern(InvokePattern.Pattern, out object invokePatternObject))
+                    //    {
+                    //        InvokePattern invokePattern = (InvokePattern)invokePatternObject;
+                    //        // 点击按钮
+                    //        invokePattern.Invoke();
+
+                    //    }
+                    //}
+
+                }
+                catch (Exception ex)
+                {
+                    log.info($"发生错误: {ex.Message}");
+                }
+
+            }
+        });
     
-        for (int i = 0; i <= time; i++) {
-            if (!_isProcessing)
-            {
-                // 如果标志为 false，终止处理
-                return;
-            }
-            try
-            {
-                int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
-
-                MouseSimulator.Click(stock, y);
-                log.info($"点击库存图标 x:{x} y:{y}");
-
-                //ScrollToControl scroll = new ScrollToControl();
-                // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
-
-                //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
-                //MouseSimulator.ClickElementCenter(submit);
-                //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
-                Thread.Sleep(500);
-                StockInput.PressY();
-                Thread.Sleep(500);
-                StockInput.PressY();
-                Thread.Sleep(500);
-
-                //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
-                //if (element != null)
-                //{
-                //    AutomationElement yes = AutomationSearchHelper.FindFirstElementByName(mainWindow, "确定");
-                //    // 检查按钮是否支持 Invoke 模式（即可点击）
-                //    if (yes.TryGetCurrentPattern(InvokePattern.Pattern, out object invokePatternObject))
-                //    {
-                //        InvokePattern invokePattern = (InvokePattern)invokePatternObject;
-                //        // 点击按钮
-                //        invokePattern.Invoke();
-                       
-                //    }
-                //}
-
-
-            }
-            catch (Exception ex)
-            {
-                log.info($"发生错误: {ex.Message}");
-            }
-           
-        }
+       
     }
 
     private int GetMaxCount(AutomationElement mainWindow) {
