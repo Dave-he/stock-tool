@@ -235,6 +235,14 @@ namespace stock_tool
         }
 
 
+
+        public static AutomationElement FindFirstElementByName(AutomationElement parent, string name)
+        {
+            Condition condition = new PropertyCondition(AutomationElement.NameProperty, name);
+            return parent.FindFirst(TreeScope.Descendants, condition);
+        }
+
+
         /// <summary>
         /// 在 Panel 元素中查找表格元素
         /// </summary>

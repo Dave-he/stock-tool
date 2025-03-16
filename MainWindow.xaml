@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:stock_tool"
         mc:Ignorable="d"
-        Title="MainWindow" Height="500" Width="400">
+        Title="MainWindow" Height="500" Width="400"
+        KeyDown="Window_KeyDown">
     <Grid>
         <Button x:Name="StartButton" Content="单个开始" HorizontalAlignment="Left" Margin="80,10,0,0" VerticalAlignment="Top" Width="75" Click="StartButton_Click"/>
         <Button x:Name="StartAll" Content="开始所有" HorizontalAlignment="Right" Margin="0,10,80,0" VerticalAlignment="Top" Width="75" Click="StartAll_Click"/>

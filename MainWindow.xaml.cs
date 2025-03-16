@@ -1,6 +1,10 @@
 ﻿using System.IO;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Extensions.Configuration;
 
 namespace stock_tool;
@@ -15,6 +19,22 @@ public partial class MainWindow : Window
 
     private static string CONFIG_FILE = "config.json";
 
+    // 定义全局键盘钩子的常量
+    private const int WH_KEYBOARD_LL = 13;
+    // 定义键盘按下消息的常量
+    private const int WM_KEYDOWN = 0x0100;
+    // 定义 ESC 键的虚拟键码
+    private const int VK_ESCAPE = 0x1B;
+
+    // 定义低级别键盘钩子处理委托
+    private static LowLevelKeyboardProc _proc = HookCallback;
+    // 钩子句柄
+    private static IntPtr _hookID = IntPtr.Zero;
+
+    // 用于控制按钮点击处理是否继续的标志
+    private static volatile bool _isProcessing = true;
+
+
     public MainWindow()
     {
         InitializeComponent();
@@ -26,6 +46,71 @@ public partial class MainWindow : Window
         string logFilePath = _configuration["LogFilePath"];
         log = new Log(this, LogTextBox, logFilePath);
         log.info($"程序启动.... \n读取配置: {File.ReadAllText(CONFIG_FILE)}");
+        // 设置全局键盘钩子
+        _hookID = SetHook(_proc);
+        // 窗口关闭时卸载钩子
+        this.Closed += (sender, e) =>
+        {
+            UnhookWindowsHookEx(_hookID);
+        };
+    }
+
+    // 设置全局键盘钩子
+    private static IntPtr SetHook(LowLevelKeyboardProc proc)
+    {
+        using (System.Diagnostics.Process curProcess = System.Diagnostics.Process.GetCurrentProcess())
+        using (System.Diagnostics.ProcessModule curModule = curProcess.MainModule)
+        {
+            return SetWindowsHookEx(WH_KEYBOARD_LL, proc,
+                GetModuleHandle(curModule.ModuleName), 0);
+        }
+    }
+
+    // 低级别键盘钩子处理委托类型
+    private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    // 钩子回调函数
+    private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN)
+        {
+            int vkCode = Marshal.ReadInt32(lParam);
+            if (vkCode == VK_ESCAPE)
+            {
+                // 设置标志为 false，终止按钮处理
+                _isProcessing = false;
+                Application.Current.Shutdown();
+            }
+        }
+        return CallNextHookEx(_hookID, nCode, wParam, lParam);
+    }
+
+
+    // 导入 Windows API 函数：设置钩子
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    // 导入 Windows API 函数：卸载钩子
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    // 导入 Windows API 函数：调用下一个钩子
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    // 导入 Windows API 函数：获取模块句柄
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+
+
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape || e.Key == Key.Space)
+        {
+            Application.Current.Shutdown();
+        }
     }
 
     private void LoadConfiguration()
@@ -71,17 +156,25 @@ public partial class MainWindow : Window
             log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
             return;
         }
-        
-        while (targetWindow != null) {
-            ProcessSingle(mainWindow, targetWindow);
-            AutomationSearchHelper.TryActivateWindow(mainWindow, log);
-            Thread.Sleep(1000);
-            targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
-                new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
-        }
+
+        //while (targetWindow != null) {
+        //    ProcessSingle(mainWindow, targetWindow);
+        //    AutomationSearchHelper.TryActivateWindow(mainWindow, log);
+        //    Thread.Sleep(1000);
+        //    targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
+        //        new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
+        //}
+
+        int maxCount = GetMaxCount(mainWindow);
+        ProcessSingle(mainWindow, targetWindow, maxCount);
+        int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
+        int close_x = x + ConvertFromConfig("CloseDiff", false);
+        int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
+        MouseSimulator.Click(close_x, y);
+        log.info($"点击关闭图标 x:{x} y:{y}");
     }
 
-    private void ProcessSingle(AutomationElement mainWindow, AutomationElement targetWindow) {
+    private void ProcessSingle(AutomationElement mainWindow, AutomationElement targetWindow, int time = 0) {
         log.info("开始执行....");
         
         // 假设要点击窗口内的坐标 (100, 200)，可根据实际情况修改
@@ -107,52 +200,64 @@ public partial class MainWindow : Window
             log.info($"刷新成功---ID: {productId.Current.Name}");
         }
 
-        for(int i = 0; i< )
-        int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
+    
+        for (int i = 0; i <= time; i++) {
+            if (!_isProcessing)
+            {
+                // 如果标志为 false，终止处理
+                return;
+            }
+            try
+            {
+                int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
 
-        MouseSimulator.Click(stock, y);
-        log.info($"点击库存图标 x:{x} y:{y}");
+                MouseSimulator.Click(stock, y);
+                log.info($"点击库存图标 x:{x} y:{y}");
 
-        //ScrollToControl scroll = new ScrollToControl();
-        // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
-      
-        //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
-        //MouseSimulator.ClickElementCenter(submit);
-        //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
-        Thread.Sleep(500);
-        StockInput.PressY();
-        Thread.Sleep(500);
-        StockInput.PressY();
-        Thread.Sleep(500);
+                //ScrollToControl scroll = new ScrollToControl();
+                // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
 
-        int close_x = (int)subject.Current.BoundingRectangle.Right + ConvertFromConfig("CloseDiff", false);
-        MouseSimulator.Click(close_x, y);
-        log.info($"点击关闭图标 x:{x} y:{y}");
+                //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
+                //MouseSimulator.ClickElementCenter(submit);
+                //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
+                Thread.Sleep(500);
+                StockInput.PressY();
+                Thread.Sleep(500);
+                StockInput.PressY();
+                Thread.Sleep(500);
+
+                //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
+                //if (element != null)
+                //{
+                //    AutomationElement yes = AutomationSearchHelper.FindFirstElementByName(mainWindow, "确定");
+                //    // 检查按钮是否支持 Invoke 模式（即可点击）
+                //    if (yes.TryGetCurrentPattern(InvokePattern.Pattern, out object invokePatternObject))
+                //    {
+                //        InvokePattern invokePattern = (InvokePattern)invokePatternObject;
+                //        // 点击按钮
+                //        invokePattern.Invoke();
+                       
+                //    }
+                //}
+
+
+            }
+            catch (Exception ex)
+            {
+                log.info($"发生错误: {ex.Message}");
+            }
+           
+        }
     }
 
-    private int GetMaxCount(AutomationElement targetElement) {
+    private int GetMaxCount(AutomationElement mainWindow) {
+        AutomationElement total = AutomationSearchHelper.FindFirstElementById(mainWindow, "lblTotal");
 
-        try
+        Match match = Regex.Match(total.Current.Name, @"\d+");
+        if (match.Success)
         {
-            // 假设 MaxCount 是自定义属性，你需要先注册该属性
-            AutomationProperty maxCountProperty = AutomationProperty.Register("MaxCountProperty", "MaxCount");
 
-            // 获取属性值
-            object maxCountValue = targetElement.GetCurrentPropertyValue(maxCountProperty);
-
-            if (maxCountValue != AutomationElement.NotSupported)
-            {
-                Console.WriteLine($"MaxCount 属性值是: {maxCountValue}");
-                return (int)maxCountValue;
-            }
-            else
-            {
-                Console.WriteLine("不支持 MaxCount 属性。");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"获取属性时发生错误: {ex.Message}");
+            return int.Parse(match.Value);
         }
         return 0;
     }

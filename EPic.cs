@@ -1,0 +1,1798 @@
+//using System;
+//using System.Collections;
+//using System.Collections.Concurrent;
+//using System.Collections.Generic;
+//using System.Collections.Specialized;
+//using System.ComponentModel;
+//using System.Drawing;
+//using System.IO;
+//using System.Linq;
+//using System.Reflection;
+//using System.Security.Cryptography;
+//using System.Security.Policy;
+//using System.Text;
+//using System.Text.Json.Nodes;
+//using System.Threading;
+//using System.Threading.Tasks;
+//using System.Windows.Forms;
+//using ZYing.Data;
+//using ZYing.Dialog;
+//using ZYing.Interface;
+//using ZYing.IO;
+//using ZYing.Web;
+//using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+
+//namespace ZYing.UI;
+
+//public class EPic : EControlNote
+//{
+//	private static EMenu _menu;
+
+//	private static OpenFileDialog _openfiles;
+
+//	private int _space = 10;
+
+//	private Size _thumbsize = new Size(110, 110);
+
+//	public EventHandler ShiftAfter;
+
+//	public EventHandler Inserted;
+
+//	public Action<string, string> Replaced;
+
+//	public Action<string> Removed;
+
+//	private EMenu _rightMenu;
+
+//	private bool _isdrop = true;
+
+//	private bool _selectable;
+
+//	private bool _exam = true;
+
+//	private string _prefix = "New" + DateTime.Now.ToString("yyyyMMddHHmmss");
+
+//	private List<string> _dels = new List<string>();
+
+//	private string[] _origins = new string[0];
+
+//	private string _errtxt = "";
+
+//	private SortedList<string, string> _sd = new SortedList<string, string>();
+
+//	private int _maxcols;
+
+//	private bool _showIndex;
+
+//	private bool _showSize = true;
+//	private bool _saved = false;
+
+//	public static EMenu 右键打开图片
+//	{
+//		get
+//		{
+//			if (_menu == null)
+//			{
+//				EMenu eMenu = new EMenu();
+//				eMenu.Font = ETheme.微软雅黑Small;
+//				eMenu.Items = new EItemCollection(new EItem(IcoEnums.img, "open", "打开"));
+//				_menu = eMenu;
+//				_menu.Opening += delegate(object sender, CancelEventArgs e)
+//				{
+//					if (sender is EControl)
+//					{
+//						_menu.Tag = sender;
+//						_menu.Adjust();
+//					}
+//				};
+//				_menu.SelectedChanged += delegate(object sender, EItemArgs e)
+//				{
+//					if (_menu.Tag is EImage eImage && e.Key == "open")
+//					{
+//						string text = Cache.PathNormal(eImage.Url);
+//						if (!text.IsNullOrEmpty())
+//						{
+//							EDialog.Open(text);
+//						}
+//					}
+//				};
+//			}
+//			return _menu;
+//		}
+//		set
+//		{
+//			_menu = value;
+//		}
+//	}
+
+//	public static OpenFileDialog OpenFiles
+//	{
+//		get
+//		{
+//			if (_openfiles == null)
+//			{
+//				_openfiles = new OpenFileDialog
+//				{
+//					AddExtension = true,
+//					CheckFileExists = true,
+//					CheckPathExists = true,
+//					Multiselect = true,
+//					Filter = "所有图片|*.BMP;*.JPG;*.JPEG;*.GIF;*.TIF;*.TIFF;*.PNG;*.WEBP|BMP图片|*.BMP|JPEG图片|*.JPG;*.JPEG|GIF图片|*.GIF|TIFF图片|*.TIF;*.TIFF|PNG图片|*.PNG"
+//				};
+//			}
+//			return _openfiles;
+//		}
+//	}
+
+//	[Category("设计")]
+//	[DefaultValue(10)]
+//	public int SpaceWidth
+//	{
+//		get
+//		{
+//			return _space;
+//		}
+//		set
+//		{
+//			_space = value;
+//			OnResize(EventArgs.Empty);
+//		}
+//	}
+
+//	[DefaultValue(typeof(Size), "110, 110")]
+//	public Size ThumbSize
+//	{
+//		get
+//		{
+//			return _thumbsize;
+//		}
+//		set
+//		{
+//			_thumbsize = value;
+//			foreach (Control control in base.Controls)
+//			{
+//				control.Size = value;
+//			}
+//			OnResize(EventArgs.Empty);
+//		}
+//	}
+
+//	public int Count
+//	{
+//		get
+//		{
+//			if (!_selectable)
+//			{
+//				return base.Controls.Count - 1;
+//			}
+//			return base.Controls.Count;
+//		}
+//	}
+
+//	public EImage this[int idx]
+//	{
+//		get
+//		{
+//			if (idx < base.Controls.Count)
+//			{
+//				return base.Controls[idx] as EImage;
+//			}
+//			return NewImage();
+//		}
+//	}
+
+//	public EImage this[string url]
+//	{
+//		get
+//		{
+//			for (int i = 0; i < Count; i++)
+//			{
+//				if (base.Controls[i] is EImage eImage && string.Compare(eImage.Url, url, ignoreCase: true) == 0)
+//				{
+//					return eImage;
+//				}
+//			}
+//			return null;
+//		}
+//	}
+
+//	public int ImageWidth
+//	{
+//		get
+//		{
+//			if (base.Controls.Count == 0)
+//			{
+//				return _thumbsize.Width;
+//			}
+//			return base.Controls[0].Width;
+//		}
+//	}
+
+//	public EMenu RightMenu
+//	{
+//		get
+//		{
+//			return _rightMenu;
+//		}
+//		set
+//		{
+//			if (_rightMenu == value)
+//			{
+//				return;
+//			}
+//			_rightMenu = value;
+//			foreach (Control control in base.Controls)
+//			{
+//				if (control is EImage eImage)
+//				{
+//					eImage.RightMenu = value;
+//				}
+//			}
+//		}
+//	}
+
+//	[Category("设计")]
+//	[DefaultValue(true)]
+//	public bool IsDropDown
+//	{
+//		get
+//		{
+//			return _isdrop;
+//		}
+//		set
+//		{
+//			if (!Editable || _isdrop == value)
+//			{
+//				return;
+//			}
+//			_isdrop = value;
+//			foreach (Control control in base.Controls)
+//			{
+//				if (control is EImage eImage)
+//				{
+//					eImage.IsDropDown = value;
+//				}
+//			}
+//		}
+//	}
+
+//	[Category("设计")]
+//	[DefaultValue(false)]
+//	public bool Selectable
+//	{
+//		get
+//		{
+//			return _selectable;
+//		}
+//		set
+//		{
+//			if (!Editable || _selectable == value)
+//			{
+//				return;
+//			}
+//			_selectable = value;
+//			if (!value)
+//			{
+//				NewImage();
+//			}
+//			else
+//			{
+//				if (base.Controls.Count <= 0)
+//				{
+//					return;
+//				}
+//				RemoveNew();
+//				foreach (Control control in base.Controls)
+//				{
+//					if (control is EImage eImage)
+//					{
+//						eImage.Selectable = value;
+//					}
+//				}
+//			}
+//		}
+//	}
+
+//	public override bool Editable
+//	{
+//		get
+//		{
+//			return base.Editable;
+//		}
+//		set
+//		{
+//			if (base.Editable == value)
+//			{
+//				return;
+//			}
+//			base.Editable = value;
+//			base.AllowDrop = value;
+//			if (value)
+//			{
+//				foreach (Control control in base.Controls)
+//				{
+//					if (control is EImage eImage)
+//					{
+//						eImage.Editable = value;
+//					}
+//				}
+//				NewImage();
+//			}
+//			else
+//			{
+//				if (base.Controls.Count <= 0)
+//				{
+//					return;
+//				}
+//				RemoveNew();
+//				foreach (Control control2 in base.Controls)
+//				{
+//					if (control2 is EImage eImage2)
+//					{
+//						eImage2.Editable = value;
+//					}
+//				}
+//			}
+//		}
+//	}
+
+//	public override bool ReadOnly
+//	{
+//		get
+//		{
+//			return base.ReadOnly;
+//		}
+//		set
+//		{
+//			if (base.ReadOnly == value)
+//			{
+//				return;
+//			}
+//			base.ReadOnly = value;
+//			foreach (Control control in base.Controls)
+//			{
+//				if (control is EImage eImage)
+//				{
+//					eImage.ReadOnly = value;
+//				}
+//			}
+//		}
+//	}
+
+//	[Category("设计")]
+//	[DefaultValue(true)]
+//	public bool Exam
+//	{
+//		get
+//		{
+//			return _exam;
+//		}
+//		set
+//		{
+//			if (_exam != value)
+//			{
+//				_exam = value;
+//				for (int i = 0; i < base.Controls.Count; i++)
+//				{
+//					this[i].Exam = value;
+//				}
+//			}
+//		}
+//	}
+
+//	public List<EImage> Images
+//	{
+//		get
+//		{
+//			List<EImage> list = new List<EImage>();
+//			for (int i = 0; i < base.Controls.Count; i++)
+//			{
+//				EImage eImage = base.Controls[i] as EImage;
+//				if (!string.IsNullOrEmpty(eImage.Url))
+//				{
+//					list.Add(eImage);
+//				}
+//			}
+//			return list;
+//		}
+//	}
+
+//	public List<EImage> SelectedImages
+//	{
+//		get
+//		{
+//			List<EImage> list = new List<EImage>();
+//			foreach (EImage control in base.Controls)
+//			{
+//				if (!string.IsNullOrEmpty(control.Url) && control.Selected)
+//				{
+//					list.Add(control);
+//				}
+//			}
+//			return list;
+//		}
+//	}
+
+//	public List<EImage> UnSelectedImages
+//	{
+//		get
+//		{
+//			List<EImage> list = new List<EImage>();
+//			foreach (EImage control in base.Controls)
+//			{
+//				if (!string.IsNullOrEmpty(control.Url) && !control.Selected)
+//				{
+//					list.Add(control);
+//				}
+//			}
+//			return list;
+//		}
+//	}
+
+//	[Browsable(false)]
+//	[EditorBrowsable(EditorBrowsableState.Never)]
+//	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+//	public string Prefix
+//	{
+//		get
+//		{
+//			return _prefix;
+//		}
+//		set
+//		{
+//			if (!(_prefix != value))
+//			{
+//				return;
+//			}
+//			_prefix = value;
+//			foreach (EImage control in base.Controls)
+//			{
+//				control.Prefix = value;
+//			}
+//		}
+//	}
+
+//	public string FirstUrl
+//	{
+//		get
+//		{
+//			for (int i = 0; i < base.Controls.Count; i++)
+//			{
+//				if (base.Controls[i] is EImage eImage && !string.IsNullOrEmpty(eImage.Url))
+//				{
+//					return eImage.Url;
+//				}
+//			}
+//			return "";
+//		}
+//	}
+
+//	public bool Changed
+//	{
+//		get
+//		{
+//			if (_dels.Count > 0)
+//			{
+//				return true;
+//			}
+//			string[] urls = Urls;
+//			if (urls.Length != _origins.Length)
+//			{
+//				return true;
+//			}
+//			for (int i = 0; i < urls.Length; i++)
+//			{
+//				if (urls[i] != _origins[i])
+//				{
+//					return true;
+//				}
+//			}
+//			return false;
+//		}
+//	}
+
+//	public string[] DeleteUrls => _dels.ToArray();
+
+//	[Browsable(false)]
+//	[EditorBrowsable(EditorBrowsableState.Never)]
+//	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+//	public string[] Urls
+//	{
+//		get
+//		{
+//			List<string> list = new List<string>();
+//			foreach (Control control in base.Controls)
+//			{
+//				if (control is EImage { Url: var url } eImage && !string.IsNullOrEmpty(url) && !list.Contains(url))
+//				{
+//					list.Add(eImage.Url);
+//				}
+//			}
+//			return list.ToArray();
+//		}
+//		set
+//		{
+//			Reset();
+//			if (value != null && value.Length != 0)
+//			{
+//				AddRange(value);
+//			}
+//			_origins = Urls;
+//			_dels.Clear();
+//		}
+//	}
+
+//	public string[] SelectedUrls => SelectedImages.Select((EImage a) => a.Url).ToArray();
+
+//	public string[] UnSelectedUrls
+//	{
+//		get
+//		{
+//			List<string> list = new List<string>();
+//			foreach (EImage control in base.Controls)
+//			{
+//				if (!string.IsNullOrEmpty(control.Url) && !control.Selected)
+//				{
+//					list.Add(control.Url);
+//				}
+//			}
+//			return list.ToArray();
+//		}
+//	}
+
+//	public string ErrorText
+//	{
+//		get
+//		{
+//			return _errtxt;
+//		}
+//		set
+//		{
+//			_errtxt = value;
+//		}
+//	}
+
+//	public bool IsDetailImage { get; set; }
+
+//	public bool HasError => !string.IsNullOrEmpty(_errtxt);
+
+//	[Category("设计")]
+//	[DefaultValue(0)]
+//	public int MaxColumns
+//	{
+//		get
+//		{
+//			return _maxcols;
+//		}
+//		set
+//		{
+//			_maxcols = value;
+//		}
+//	}
+
+//	public int UnitWidth
+//	{
+//		get
+//		{
+//			if (base.Controls.Count <= 0)
+//			{
+//				return _thumbsize.Width;
+//			}
+//			return base.Controls[0].Width;
+//		}
+//	}
+
+//	[Category("设计")]
+//	[DefaultValue(false)]
+//	public bool ShowIndex
+//	{
+//		get
+//		{
+//			return _showIndex;
+//		}
+//		set
+//		{
+//			if (_showIndex != value)
+//			{
+//				_showIndex = value;
+//				ReIndex();
+//			}
+//		}
+//	}
+
+//	[Category("设计")]
+//	[DefaultValue(true)]
+//	public bool ShowSize
+//	{
+//		get
+//		{
+//			return _showSize;
+//		}
+//		set
+//		{
+//			if (_showSize == value)
+//			{
+//				return;
+//			}
+//			_showSize = value;
+//			foreach (Control control in base.Controls)
+//			{
+//				if (control is EImage eImage)
+//				{
+//					eImage.ShowSize = value;
+//				}
+//			}
+//		}
+//	}
+
+//	public event EventHandler SelectedChanged;
+
+//	public EPic()
+//	{
+//		base.xPadding = Padding.Empty;
+//		base.AllowDrop = true;
+//		NewImage();
+//	}
+
+//	private void RemoveNew()
+//	{
+//		int count = base.Controls.Count;
+//		if (count != 0 && (base.Controls[count - 1] as EImage).State == ImageState.Init)
+//		{
+//			base.Controls.RemoveAt(count - 1);
+//		}
+//	}
+
+//	public void SelectAll(bool sel)
+//	{
+//		foreach (EImage control in base.Controls)
+//		{
+//			control.Selected = sel;
+//		}
+//	}
+
+//	public void RemoveSame()
+//	{
+//		Dictionary<string, string> dictionary = new Dictionary<string, string>();
+//		List<EImage> list = new List<EImage>();
+//		foreach (Control control in base.Controls)
+//		{
+//			if (control is EImage eImage && !string.IsNullOrEmpty(eImage.Url) && eImage.Md5 != null)
+//			{
+//				if (!dictionary.TryGetValue(eImage.Md5, out var value))
+//				{
+//					dictionary.Add(eImage.Md5, eImage.Url);
+//				}
+//				else if (eImage.Url != value)
+//				{
+//					list.Add(eImage);
+//				}
+//			}
+//		}
+//		if (list.Count <= 0)
+//		{
+//			return;
+//		}
+//		foreach (EImage item in list)
+//		{
+//			base.Controls.Remove(item);
+//		}
+//		OnResize(EventArgs.Empty);
+//	}
+
+//	public override void Read(Record re, bool always = false)
+//	{
+//		if ((!base.PostVisible || base.Visible) && !string.IsNullOrEmpty(Field))
+//		{
+//			ErrorText = "";
+//			Urls = re?.Gets(Field);
+//		}
+//	}
+
+//	public override void Fill(Record re, StringBuilder sb)
+//	{
+//		if ((!base.PostVisible || base.Visible) && !string.IsNullOrEmpty(Field))
+//		{
+//			if (HasError)
+//			{
+//				sb.Append(((sb.Length > 0) ? "\n" : "") + ErrorText);
+//				return;
+//			}
+//			string[] urls = Urls;
+//			re.Columns.Add(Field).Set(Arrays.Join(urls));
+//		}
+//	}
+
+//	public override void EndEdit()
+//	{
+//		_dels.Clear();
+//		_origins = Urls;
+//	}
+
+//	public override void Cancel()
+//	{
+//	}
+
+//	public override void Reset()
+//	{
+//		_dels.Clear();
+//		_origins = new string[0];
+//		if (base.Controls.Count != 0)
+//		{
+//			base.Controls.Clear();
+//			if (!base.ReadOnly && base.Editable && !_selectable)
+//			{
+//				NewImage();
+//				OnResize(EventArgs.Empty);
+//			}
+//		}
+//	}
+
+//    public async void SaveAll()
+//    {
+//		if (_saved) {
+//			return;
+//		}
+//        string dir = EImage.Get图片目录();
+//        if (dir.Length == 0)
+//        {
+//            return;
+//        }
+
+
+//		bool newFun = base.Parent.Parent.Parent.Parent.GetType().Name != "采集列表";
+//        bool 弹出 = newFun;
+//		if (newFun)
+//		{
+//			foreach (Control control in base.Controls)
+//			{
+//				if (control is EImage eImage && eImage.Url.Length > 0)
+//				{
+//					await eImage.Saving(dir, 弹出);
+//					弹出 = false;
+//				}
+//			}
+//			return;
+//		}
+
+		
+		
+
+//		EGallery eGallery = null;
+//		foreach (Control c in base.Parent.Parent.Parent.Parent.Controls) {
+//			if (c.Name.Equals("main")) {
+//				foreach (Control c1 in c.Controls) {
+//					if (c1.Name.Equals("grid") && c1 is EGallery e) {
+//						eGallery = e;
+//						break;
+//					}
+//				}
+//			}
+//		}
+
+//		if (eGallery == null) {
+//            MessageBox.Show($"未找到列表! 请更新组件");
+//        }
+//        /**
+//ICell last_cell = eGallery.CurrentCell;
+//EPanelEx ep = ((EPanelEx)base.Parent.Parent.Parent);
+//int salePics = 0;
+//List<string> processed = [base.Parent.Name];
+//foreach (ICell cell in eGallery.Cells)
+//{
+//    if (cell.Equals(last_cell))
+//    {
+//        continue;
+//    }
+//    //Point p = new Point(cell.ClientRectangle.X, cell.ClientRectangle.Y);
+//    //eGallery.MouseClickLeft(p);
+//    //Thread.Sleep(1000);
+//    EControl page = null;
+//    foreach (EControl p in ep.Pages) {
+//        if (p.Name.Equals(cell.Name)) {
+//            page = p;
+//            break;
+//        }
+//    }
+
+//    if (page == null)
+//    {
+//       page = ep.CreatePage(eGallery, cell.Name);
+//    }
+
+//    MessageBox.Show($"page: {page.Name} \n");
+//    //page?.Load();
+//   // page.Load();
+//    //Thread.Sleep(3000);
+
+//        //处理每一页
+//    foreach (EControl c in page.Controls)
+//    {
+//        if (c is EPic pic && pic.Name.Equal(this.Name) && !pic.Equals(this))
+//        {
+//            while (pic.Loading)
+//            {
+//                Thread.Sleep(200);
+//            }
+//            foreach (Control control in pic.Controls)
+//            {
+//                if (control is EImage eImage && eImage.Url.Length > 0)
+//                {
+//                    await eImage.Saving(dir, false);
+//                    Thread.Sleep(200);
+//                    salePics++;
+//                }
+//            }
+//        }
+
+//    }
+//        //ep.ClearPage(page);
+   
+//}
+
+
+////eGallery.CurrentCell = last_cell;
+//**/
+
+//        string logtime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss");
+//        string logpath = Path.GetFullPath("/log/" + logtime + "/");
+//        if (!Directory.Exists(logpath))
+//        {
+//            Directory.CreateDirectory(logpath);
+//        }
+
+//        List<string> salePics = new List<string>();
+//        List<string> items = new List<string>();
+//        object parent = base.Parent;
+//        object zClient = parent.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(parent);
+//        if (zClient == null)
+//        {
+//            MessageBox.Show("Collect ZClient is Null");
+//            return;
+//        }
+//        FieldInfo commandField = zClient.GetType().GetField("Command");
+//        commandField.SetValue(zClient, "spider.total");
+//        MethodInfo posAsyncPara = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[1] { typeof(Para) }, null);
+//        if (posAsyncPara == null)
+//        {
+//            MessageBox.Show("posAsyncPara is Null");
+//        }
+//        int num = -1;
+
+//        for (int curPage = 0; curPage <= 10000 && (num <= 0 || num >= curPage * 60); curPage++)
+//        {
+//            Para para = new Para();
+//            para.page = curPage + 1;
+//            para.pagesize = 60;
+//            object[] parameters = new object[1] { para };
+//            object paraTask = posAsyncPara.Invoke(zClient, parameters);
+//            Task task = paraTask as Task;
+//            Type type = paraTask.GetType().GetGenericArguments()[0];
+//            PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type).GetProperty("Result");
+//            await task;
+//            object value = paraProperty.GetValue(paraTask);
+//            ZYing.Web.JsonObject jsonObject = ZYing.Web.JsonObject.Create((value.GetType().GetField("RS").GetValue(value) as RecordSet).ToJson());
+//            num = jsonObject.GetInt("list/maxcount");
+//            File.WriteAllText(logpath + "page-" + curPage + ".json", jsonObject.ToString());
+//            foreach (JsonElement item in jsonObject.GetArray("list/data"))
+//            {
+//                string @string = item.GetString("id");
+//                items.Add(@string);
+//            }
+//        }
+//        commandField.SetValue(zClient, "spider.detail");
+//        MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+//        {
+//        typeof(string),
+//        typeof(string)
+//        }, null);
+
+//        EImage last_eImage = null;
+//        foreach (Control control in base.Controls)
+//        {
+//            if (control is EImage eImage && eImage.Url.Length > 0)
+//            {
+//                last_eImage = eImage;
+//                break;
+//            }
+//        }
+
+//        if (last_eImage is null)
+//        {
+//            return;
+//        }
+//		string last_prefix = _prefix;
+//        foreach (string dir1 in items)
+//        {
+//            bool notFind = true;
+//            foreach (ICell c in eGallery.Cells)
+//            {
+//                if (c.Name.Equals(dir1))
+//                {
+//                    notFind = false;
+//                    break;
+//                }
+
+//            }
+
+
+//            if (dir1.Length == 0 || notFind
+//				//|| dir1.Equals(last_prefix)
+//				)
+//            {
+//                continue;
+//            }
+//            _prefix = dir1;
+//            object[] parameters2 = new object[2] { "id", dir1 };
+//            object paraTask = posAsync.Invoke(zClient, parameters2);
+//            Task task2 = paraTask as Task;
+//            Type type2 = paraTask.GetType().GetGenericArguments()[0];
+//            PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+//            await task2;
+//            object value2 = paraProperty.GetValue(paraTask);
+//            string text = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet).ToJson();
+//            File.WriteAllText(logpath + "text-" + dir1 + ".json", text);
+//            System.Text.Json.Nodes.JsonObject jsonObject = JsonNode.Parse(text).AsObject();
+//            System.Text.Json.Nodes.JsonArray root = jsonObject["root"].AsArray();
+//            foreach (JsonNode node in root)
+//            {
+//                System.Text.Json.Nodes.JsonArray salePicNode = node["sale_pic"].AsArray();
+//                List<string> list = new List<string>();
+//                foreach (JsonNode node2 in salePicNode)
+//                {
+//                    string text2 = node2.ToString();
+//                    salePics.Add(text2);
+//                    list.Add(text2);
+//                }
+
+
+//                foreach (string line in list)
+//                {
+//                    if (line.Length > 0)
+//                    {
+//                        EImage instance = EImage.Instance;
+//                        instance.Parent = this;
+//                        instance.Url = line;
+//                        instance.Size = last_eImage.Size;
+//                        instance.Image = last_eImage.Image;
+//                        instance.Mode = last_eImage.Mode;
+//                        await instance.Saving(dir, false);
+//                    }
+//                }
+//				_prefix = last_prefix;
+//            }
+//        }
+//        EPanelEx ep = ((EPanelEx)base.Parent.Parent.Parent);
+//		ep.Refresh();
+//		foreach (EControl page in ep.Pages) {
+//			page.Load();
+//		}
+//        MessageBox.Show($"全部保存的图片数量为: {salePics.Count} \n");
+
+//    }
+
+//    public async void WhiteAll()
+//    {
+//        if (_saved)
+//        {
+//            return;
+//        }
+//        string dir = EImage.Get图片目录();
+//        if (dir.Length == 0)
+//        {
+//            return;
+//        }
+
+//        bool newFun = base.Parent.Parent.Parent.Parent.GetType().Name != "采集列表";
+//        bool 弹出 = newFun;
+	
+
+//        if (newFun)
+//        {
+
+//            foreach (Control control in base.Controls)
+//            {
+//                if (control is EImage eImage && eImage.Url.Length > 0)
+//                {
+//                    await eImage.白框ing(dir, 弹出);
+//                    弹出 = false;
+//                }
+//            }
+//			return;
+//        }
+
+      
+	
+//        EGallery eGallery = null;
+//        foreach (Control c in base.Parent.Parent.Parent.Parent.Controls)
+//        {
+//            if (c.Name.Equals("main"))
+//            {
+//                foreach (Control c1 in c.Controls)
+//                {
+//                    if (c1.Name.Equals("grid") && c1 is EGallery e)
+//                    {
+//                        eGallery = e;
+//                        break;
+//                    }
+//                }
+//            }
+//        }
+
+//        if (eGallery == null)
+//        {
+//            MessageBox.Show($"未找到列表! 请更新组件");
+//        }
+//        /**
+//      ICell last_cell = eGallery.CurrentCell;
+//      EPanelEx ep = ((EPanelEx)base.Parent.Parent.Parent);
+//      int salePics = 0;
+//      List<string> processed = [base.Parent.Name];
+//      foreach (ICell cell in eGallery.Cells)
+//      {
+//          if (cell.Equals(last_cell))
+//          {
+//              continue;
+//          }
+//          // Point p = new Point(cell.ClientRectangle.X, cell.ClientRectangle.Y);
+//          // eGallery.MouseClickLeft(p);
+//          EControl page = null;
+//          foreach (EControl p in ep.Pages)
+//          {
+//              if (p.Name.Equals(cell.Name))
+//              {
+//                  page = p;
+//                  break;
+//              }
+//          }
+
+//          if (page == null)
+//          {
+//              page = ep.CreatePage(eGallery, cell.Name);
+//          }
+
+//          MessageBox.Show($"page: {page.Name} \n");
+
+//          //处理每一页
+//          string name = this.Name;
+//          string btnName = name.Equals("epic") ? "btnSubmit1" : "btnBottom";
+//          EButton btn = null;
+//          foreach (EControl c in page.Controls)
+//          {
+//              if (c.Name.Equals(btnName) && c is EButton b) {
+//                  btn = b;
+//              }
+
+//              if (c is EPic pic && pic.Name.Equal(name) && !pic.Equals(this))
+//              {
+//                  while (pic.Loading) {
+//                      Thread.Sleep(200);
+//                  }
+
+//                  foreach (Control control in pic.Controls)
+//                  {
+//                      if (control is EImage eImage && eImage.Url.Length > 0)
+//                      {
+//                          await eImage.白框ing(dir, false);
+//                          salePics++;
+//                      }
+//                  }
+//              }
+
+//          }
+
+//          btn.MyClick();
+//          //ep.ClearPage(page);
+
+//      }
+
+
+//      eGallery.CurrentCell = last_cell;
+//      **/
+
+//        List<string> salePics = new List<string>();
+//        List<string> items = new List<string>();
+//        object parent = base.Parent;
+//        object zClient = parent.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(parent);
+//        if (zClient == null)
+//        {
+//            MessageBox.Show("Collect ZClient is Null");
+//            return;
+//        }
+//        FieldInfo commandField = zClient.GetType().GetField("Command");
+//        commandField.SetValue(zClient, "spider.total");
+//        MethodInfo posAsyncPara = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[1] { typeof(Para) }, null);
+//        if (posAsyncPara == null)
+//        {
+//            MessageBox.Show("posAsyncPara is Null");
+//        }
+//        int num = -1;
+
+//        for (int curPage = 0; curPage <= 10000 && (num <= 0 || num >= curPage * 60); curPage++)
+//        {
+//            Para para = new Para();
+//            para.page = curPage + 1;
+//            para.pagesize = 60;
+//            object[] parameters = new object[1] { para };
+//            object paraTask = posAsyncPara.Invoke(zClient, parameters);
+//            Task task = paraTask as Task;
+//            Type type = paraTask.GetType().GetGenericArguments()[0];
+//            PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type).GetProperty("Result");
+//            await task;
+//            object value = paraProperty.GetValue(paraTask);
+//            ZYing.Web.JsonObject jsonObject = ZYing.Web.JsonObject.Create((value.GetType().GetField("RS").GetValue(value) as RecordSet).ToJson());
+//            num = jsonObject.GetInt("list/maxcount");
+//            foreach (JsonElement item in jsonObject.GetArray("list/data"))
+//            {
+//                string @string = item.GetString("id");
+//                items.Add(@string);
+//            }
+//        }
+//        commandField.SetValue(zClient, "spider.detail");
+//        MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+//        {
+//        typeof(string),
+//        typeof(string)
+//        }, null);
+
+//        EImage last_eImage = null;
+//        foreach (Control control in base.Controls)
+//        {
+//            if (control is EImage eImage && eImage.Url.Length > 0)
+//            {
+//                last_eImage = eImage;
+//                break;
+//            }
+//        }
+
+//        if (last_eImage is null)
+//        {
+//            return;
+//        }
+
+//        string last_url = last_eImage.Url;
+//		Image last_img = last_eImage.Image;
+//		string last_prefix = _prefix;
+//		string last_md5 = last_eImage.Md5;
+//        foreach (string dir1 in items)
+//        {
+//			bool notFind = true;
+//            foreach (ICell c in eGallery.Cells)
+//            {
+//				if (c.Name.Equals(dir1)) {
+//                    notFind = false;
+//                    break;
+//                }
+				
+//            }
+
+//            if (dir1.Length == 0 || notFind
+//                //|| dir1.Equals(last_prefix)
+//                )
+//            {
+//                continue;
+//            }
+
+
+//            _prefix = dir1;
+//            object[] parameters2 = new object[2] { "id", dir1 };
+//            object paraTask = posAsync.Invoke(zClient, parameters2);
+//            Task task2 = paraTask as Task;
+//            Type type2 = paraTask.GetType().GetGenericArguments()[0];
+//            PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+//            await task2;
+//            object value2 = paraProperty.GetValue(paraTask);
+//            string text = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet).ToJson();
+//            System.Text.Json.Nodes.JsonObject jsonObject = JsonNode.Parse(text).AsObject();
+//            System.Text.Json.Nodes.JsonArray root = jsonObject["root"].AsArray();
+//            foreach (JsonNode node in root)
+//            {
+//                System.Text.Json.Nodes.JsonArray salePicNode = node["sale_pic"].AsArray();
+//                List<string> list = new List<string>();
+//                foreach (JsonNode node2 in salePicNode)
+//                {
+//                    string text2 = node2.ToString();
+//                    salePics.Add(text2);
+//                    list.Add(text2);
+//                }
+
+
+//                foreach (string line in list)
+//                {
+//                    if (line.Length > 0)
+//                    {
+//                        EImage instance = EImage.Instance;
+//						instance.Parent = this;
+//                        instance.Url = line;
+//                        instance.Size = last_eImage.Size;
+//                        instance.Image = last_eImage.Image;
+//                        instance.Mode = last_eImage.Mode;
+//                        await instance.白框ing(dir, 弹出: false);
+//                    }
+//                }
+				
+//            }
+//            _prefix = last_prefix;
+//            //last_eImage.Url = last_url;
+//        }
+//        EPanelEx ep = ((EPanelEx)base.Parent.Parent.Parent);
+//        ep.Refresh();
+//        foreach (EControl page in ep.Pages)
+//        {
+//            page.Load();
+//        }
+//        MessageBox.Show($"全部白框的图片数量为: {salePics.Count} \n");
+//    }
+
+//    public async void ExpandAll()
+//	{
+//		string dir = EImage.Get图片目录();
+//		if (dir.Length == 0)
+//		{
+//			return;
+//		}
+//		foreach (Control control in base.Controls)
+//		{
+//			if (control is EImage eImage && eImage.Url.Length > 0)
+//			{
+//				await eImage.放大ing(dir, 弹出: false);
+//			}
+//		}
+//	}
+
+//	public async Task<List<string>> GetCachePaths()
+//	{
+//		ConcurrentBag<string> list = new ConcurrentBag<string>();
+//		List<EImage> list2 = new List<EImage>();
+//		foreach (Control control in base.Controls)
+//		{
+//			if (control is EImage eImage && eImage.Url.Length > 0)
+//			{
+//				list2.Add(eImage);
+//			}
+//		}
+//		SemaphoreSlim slim = new SemaphoreSlim(10, 10);
+//		try
+//		{
+//			await Task.WhenAll(((IEnumerable<EImage>)list2).Select((Func<EImage, Task>)async delegate(EImage img)
+//			{
+//				try
+//				{
+//					await slim.WaitAsync(TimeSpan.FromMinutes(3.0));
+//					string text = await img.GetCachePath();
+//					if (!text.IsNullOrEmpty())
+//					{
+//						list.Add(text);
+//					}
+//				}
+//				catch (Exception)
+//				{
+//				}
+//				finally
+//				{
+//					slim.Release();
+//				}
+//				await Task.Delay(10);
+//			}));
+//		}
+//		finally
+//		{
+//			if (slim != null)
+//			{
+//				((IDisposable)slim).Dispose();
+//			}
+//		}
+//		return list.ToList();
+//	}
+
+//	public void 替换图片(NameValueCollection nv)
+//	{
+//		if (nv == null || nv.Count == 0)
+//		{
+//			return;
+//		}
+//		foreach (Control control in base.Controls)
+//		{
+//			if (control is EImage eImage && eImage.Url.Length > 0)
+//			{
+//				string text = nv[eImage.Url];
+//				if (!string.IsNullOrEmpty(text))
+//				{
+//					eImage.ChangeUrl(text);
+//				}
+//			}
+//		}
+//	}
+
+//	public EImage[] GetImages(bool onlyFile = true)
+//	{
+//		List<EImage> list = new List<EImage>();
+//		for (int i = 0; i < base.Controls.Count; i++)
+//		{
+//			EImage eImage = base.Controls[i] as EImage;
+//			string url = eImage.Url;
+//			if (!string.IsNullOrEmpty(url) && OSS.需要上传(url, onlyFile))
+//			{
+//				list.Add(eImage);
+//			}
+//		}
+//		return list.ToArray();
+//	}
+
+//	public string[] GetUrls()
+//	{
+//		List<string> list = new List<string>();
+//		for (int i = 0; i < base.Controls.Count; i++)
+//		{
+//			string url = (base.Controls[i] as EImage).Url;
+//			if (!string.IsNullOrEmpty(url))
+//			{
+//				list.Add(url);
+//			}
+//		}
+//		return list.ToArray();
+//	}
+
+//	public void ChangeUrl(string old, string s)
+//	{
+//		if (old == s || string.IsNullOrEmpty(old) || string.IsNullOrEmpty(s))
+//		{
+//			return;
+//		}
+//		try
+//		{
+//			_sd[old] = s;
+//		}
+//		catch
+//		{
+//		}
+//	}
+
+//	public string GetUrl(string url)
+//	{
+//		if (_sd.TryGetValue(url, out var value))
+//		{
+//			return value;
+//		}
+//		return url;
+//	}
+
+//	protected override void OnResize(EventArgs e)
+//	{
+//		SuspendLayout();
+//		if (base.Parent is EWinDrop || base.Parent is EPicScroll)
+//		{
+//			Padding padding = base.xPadding;
+//			int width = _thumbsize.Width;
+//			int num = (base.Width - padding.Horizontal + _space) / (width + _space);
+//			if (num < 1)
+//			{
+//				num = 1;
+//			}
+//			int num2 = (base.Controls.Count - 1) / num + 1;
+//			if (num2 == 0)
+//			{
+//				num2 = 1;
+//			}
+//			int num3 = 0;
+//			Point point = new Point(padding.Left, padding.Top);
+//			foreach (Control control3 in base.Controls)
+//			{
+//				if (control3.Width != width)
+//				{
+//					control3.Width = width;
+//				}
+//				if (!control3.Location.Equals(point))
+//				{
+//					control3.Location = point;
+//				}
+//				point.X += width + _space;
+//				if (num3 % num == num - 1)
+//				{
+//					point.X = padding.Left;
+//					point.Y += _thumbsize.Height + _space;
+//				}
+//				num3++;
+//			}
+//			Size size = new Size(num * _thumbsize.Width + (num - 1) * _space + padding.Horizontal, num2 * _thumbsize.Height + (num2 - 1) * _space + padding.Vertical);
+//			if (!base.xSize.Equals(size))
+//			{
+//				Control parent = base.Parent;
+//				Size size3 = (base.xSize = size);
+//				parent.Size = size3;
+//			}
+//		}
+//		else
+//		{
+//			int num4 = ((_maxcols > 0) ? Math.Min(_maxcols, base.Controls.Count) : ((base.Width - base.xIndent + _space) / (_thumbsize.Width + _space)));
+//			if (num4 < 1)
+//			{
+//				num4 = 1;
+//			}
+//			int num5 = ((_maxcols > 0) ? _thumbsize.Width : ((base.Width - base.xIndent - _space * (num4 - 1)) / num4));
+//			int num6 = (base.Controls.Count - 1) / num4 + 1;
+//			if (num6 == 0)
+//			{
+//				num6 = 1;
+//			}
+//			int mainTop = base.MainTop;
+//			int height = num6 * _thumbsize.Height + (num6 - 1) * _space + mainTop;
+//			int width2 = ((_maxcols > 0) ? (num4 * num5 + (num4 - 1) * _space) : base.Width);
+//			Size other = new Size(width2, height);
+//			if (!xSize.Equals(other))
+//			{
+//				xSize = other;
+//			}
+//			else
+//			{
+//				int num7 = 0;
+//				Point point2 = new Point(base.xIndent, mainTop);
+//				foreach (Control control4 in base.Controls)
+//				{
+//					if (control4.Width != num5)
+//					{
+//						control4.Width = num5;
+//					}
+//					if (!control4.Location.Equals(point2))
+//					{
+//						control4.Location = point2;
+//					}
+//					point2.X += num5 + _space;
+//					if (num7 % num4 == num4 - 1)
+//					{
+//						point2.X = base.xIndent;
+//						point2.Y += _thumbsize.Height + _space;
+//					}
+//					num7++;
+//				}
+//			}
+//		}
+//		ResumeLayout(performLayout: false);
+//		base.OnResize(e);
+//	}
+
+//	private EImage NewImage()
+//	{
+//		return NewImage(ImageState.Init);
+//	}
+
+//	private EImage NewImage(ImageState state)
+//	{
+//		EImage eImage = new EImage
+//		{
+//			Size = _thumbsize,
+//			Mode = PictureBoxSizeMode.Zoom,
+//			Editable = Editable,
+//			ReadOnly = ReadOnly,
+//			RightMenu = _rightMenu,
+//			IsDropDown = _isdrop,
+//			Selectable = _selectable,
+//			State = state,
+//			ShowSize = _showSize,
+//			Exam = _exam
+//		};
+//		eImage.Inserting += img_InsertImage;
+//		eImage.Replacing += img_Replacing;
+//		eImage.Removing += img_RemoveImage;
+//		base.Controls.Add(eImage);
+//		return eImage;
+//	}
+
+//	private void ReIndex()
+//	{
+//		int num = 0;
+//		foreach (Control control in base.Controls)
+//		{
+//			if (control is EImage eImage)
+//			{
+//				if (eImage.State == ImageState.Init)
+//				{
+//					eImage.RightNumber = 0;
+//				}
+//				else
+//				{
+//					eImage.RightNumber = (ShowIndex ? (++num) : 0);
+//				}
+//			}
+//		}
+//	}
+
+//	private void img_InsertImage(object sender, EventArgs e)
+//	{
+//		if (!(sender is EImage eImage))
+//		{
+//			return;
+//		}
+//		if (eImage.ReadOnly)
+//		{
+//			EDialogImage.Instance.ShowDialog(eImage);
+//		}
+//		else
+//		{
+//			if (OpenFiles.ShowDialog() != DialogResult.OK)
+//			{
+//				return;
+//			}
+//			AddRange(OpenFiles.FileNames);
+//		}
+//		OnInsert();
+//	}
+
+//	private void img_Replacing(string old, string url)
+//	{
+//		Replaced?.Invoke(old, url);
+//	}
+
+//	private void img_RemoveImage(object sender, EventArgs e)
+//	{
+//		if (sender is EImage eImage && base.Controls.Count > 1)
+//		{
+//			string url = eImage.Url;
+//			if (!string.IsNullOrEmpty(url) && !_dels.Contains(url))
+//			{
+//				_dels.Add(url);
+//			}
+//			base.Controls.Remove(eImage);
+//			OnResize(EventArgs.Empty);
+//			if (ShowIndex)
+//			{
+//				ReIndex();
+//			}
+//			OnRemove(url);
+//		}
+//	}
+
+//	public void Select(bool ok, params string[] urls)
+//	{
+//		if (!_selectable)
+//		{
+//			return;
+//		}
+//		for (int i = 0; i < base.Controls.Count; i++)
+//		{
+//			if (base.Controls[i] is EImage eImage)
+//			{
+//				eImage.Selected = ((IEnumerable<string>)urls).Contains(new string[1] { eImage.Url });
+//			}
+//		}
+//	}
+
+//	public void Fill(EPic p, string[] ls)
+//	{
+//		if (p == null)
+//		{
+//			Urls = ls;
+//			return;
+//		}
+//		SuspendLayout();
+//		for (int i = 0; i < ls.Length; i++)
+//		{
+//			string url = ls[i];
+//			EImage eImage = this[i];
+//			eImage.RightNumber = 0;
+//			eImage.Selected = false;
+//			EImage eImage2 = p[url];
+//			if (eImage2 != null && eImage2.State == ImageState.OK)
+//			{
+//				eImage.Set(url, eImage2);
+//			}
+//			else
+//			{
+//				eImage.Url = url;
+//			}
+//		}
+//		for (int num = base.Controls.Count - 1; num >= ls.Length; num--)
+//		{
+//			base.Controls.RemoveAt(num);
+//		}
+//		if (Editable && !_selectable)
+//		{
+//			NewImage();
+//		}
+//		OnResize(EventArgs.Empty);
+//		ResumeLayout(performLayout: false);
+//	}
+
+//	public void AddRange(params string[] ls)
+//	{
+//		if (ls == null || ls.Length == 0)
+//		{
+//			return;
+//		}
+//		if (base.InvokeRequired)
+//		{
+//			Invoke(new Action<string[]>(AddRange), new object[1] { ls });
+//			return;
+//		}
+//		SuspendLayout();
+//		SortedList<string, bool> sortedList = new SortedList<string, bool>(StringComparer.OrdinalIgnoreCase);
+//		foreach (Control control in base.Controls)
+//		{
+//			if (control is EImage eImage)
+//			{
+//				sortedList[eImage.Url] = true;
+//			}
+//		}
+//		foreach (string text in ls)
+//		{
+//			if (!OSS.IsPic(text) || sortedList.ContainsKey(text))
+//			{
+//				continue;
+//			}
+//			if (_selectable || !base.Editable || base.Controls.Count == 0)
+//			{
+//				NewImage().Url = text;
+//			}
+//			else
+//			{
+//				EImage eImage2 = base.Controls[base.Controls.Count - 1] as EImage;
+//				if (eImage2.State != 0)
+//				{
+//					eImage2 = NewImage();
+//				}
+//				eImage2.Url = text;
+//				NewImage();
+//			}
+//			sortedList.Add(text, value: true);
+//		}
+//		if (ShowIndex)
+//		{
+//			ReIndex();
+//		}
+//		ResumeLayout(performLayout: false);
+//		OnInsert();
+//		OnResize(EventArgs.Empty);
+//	}
+
+//	public void Shift(string url, Control c)
+//	{
+//		int num = 0;
+//		for (int i = 0; i < base.Controls.Count; i++)
+//		{
+//			if (base.Controls[i] == c)
+//			{
+//				num = i;
+//				break;
+//			}
+//		}
+//		if (num == base.Controls.Count - 1)
+//		{
+//			num--;
+//		}
+//		for (int j = 0; j < base.Controls.Count; j++)
+//		{
+//			if (base.Controls[j] is EImage eImage && string.Compare(eImage.Url, url) == 0)
+//			{
+//				eImage.DragFrom = false;
+//				base.Controls.SetChildIndex(eImage, num);
+//				OnResize(EventArgs.Empty);
+//				OnShift();
+//				return;
+//			}
+//		}
+//		AddRange(url);
+//		OnShift();
+//	}
+
+//	public void Shift(string a, string b, string c)
+//	{
+//		EImage child = null;
+//		int num = -1;
+//		int num2 = -1;
+//		int num3 = -1;
+//		for (int i = 0; i < base.Controls.Count; i++)
+//		{
+//			EImage eImage = base.Controls[i] as EImage;
+//			if (num == -1 && a != null && string.Compare(eImage.Url, a, ignoreCase: true) == 0)
+//			{
+//				num = i;
+//			}
+//			if (num2 == -1 && b != null && string.Compare(eImage.Url, b, ignoreCase: true) == 0)
+//			{
+//				num2 = i;
+//				child = eImage;
+//			}
+//			if (num3 == -1 && c != null && string.Compare(eImage.Url, c, ignoreCase: true) == 0)
+//			{
+//				num3 = i;
+//			}
+//			if ((a == null || num > -1) && num2 > -1 && (c == null || num3 > -1))
+//			{
+//				break;
+//			}
+//		}
+//		if (num2 != -1)
+//		{
+//			if (num > -1 && num > num2)
+//			{
+//				base.Controls.SetChildIndex(child, num);
+//			}
+//			if (num3 > -1 && num3 < num2)
+//			{
+//				base.Controls.SetChildIndex(child, num3);
+//			}
+//			OnResize(EventArgs.Empty);
+//			OnShift();
+//		}
+//	}
+
+//	public override void OnSelectedChanged()
+//	{
+//		this.SelectedChanged?.Invoke(this, EventArgs.Empty);
+//	}
+
+//	public virtual void OnShift()
+//	{
+//		ShiftAfter?.Invoke(this, EventArgs.Empty);
+//	}
+
+//	public virtual void OnInsert()
+//	{
+//		Inserted?.Invoke(this, EventArgs.Empty);
+//	}
+
+//	public virtual void OnRemove(string url)
+//	{
+//		Removed?.Invoke(url);
+//	}
+
+//	protected override void OnDragEnter(DragEventArgs e)
+//	{
+//		e.Effect = (e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None);
+//	}
+
+//	protected override void OnDragDrop(DragEventArgs e)
+//	{
+//		if (!Editable)
+//		{
+//			return;
+//		}
+//		string[] array = (string[])e.Data.GetData(DataFormats.FileDrop, autoConvert: true);
+//		if (array == null || array.Length == 0)
+//		{
+//			return;
+//		}
+//		List<string> list = new List<string>();
+//		string[] array2 = array;
+//		foreach (string text in array2)
+//		{
+//			switch (Path.GetExtension(text).ToLower())
+//			{
+//			case ".bmp":
+//			case ".jpg":
+//			case ".jpeg":
+//			case ".gif":
+//			case ".tif":
+//			case ".tiff":
+//			case ".png":
+//				list.Add(text);
+//				break;
+//			}
+//		}
+//		AddRange(list.ToArray());
+//	}
+
+//	protected override void OnPaint(PaintEventArgs e)
+//	{
+//		if (base.Parent is EWinDrop)
+//		{
+//			Graphics graphics = e.Graphics;
+//			ETheme current = ETheme.Current;
+//			Rectangle rect = new Rectangle(0, 0, base.Width - 1, base.Height - 1);
+//			using (Pen pen = new Pen((Focused || base.Parent is EWinDrop) ? current.ColorBorderFocus : current.ColorBorder, 1f))
+//			{
+//				graphics.DrawRectangle(pen, rect);
+//			}
+//			rect = new Rectangle(1, 1, rect.Width - 2, rect.Height - 2);
+//			using Pen pen2 = new Pen(Color.FromArgb(15, 0, 0, 0));
+//			graphics.DrawRectangle(pen2, rect);
+//			return;
+//		}
+//		base.OnPaint(e);
+//	}
+
+//	public void Painting(PaintEventArgs e)
+//	{
+//		OnPaint(e);
+//	}
+//}
