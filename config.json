@@ -11,5 +11,7 @@
   "StockRight": "110",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "30", //关闭按钮和产品编号最右边距离
-  "WaitSeconds": "600"
+  "WaitMillSeconds": "600",
+  "ResultFilePath": "result/",
+  "CompareFilePath": "C:/ZYing/stock_tmp.txt"
 }

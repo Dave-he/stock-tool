@@ -21,7 +21,7 @@ namespace stock_tool
 
 
         // 确保日志目录存在
-        private void EnsureLogDirectoryExists(string logFilePath)
+        public void EnsureLogDirectoryExists(string logFilePath)
         {
             string logDirectory = Path.GetDirectoryName(logFilePath);
             if (!Directory.Exists(logDirectory))

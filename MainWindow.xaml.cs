@@ -185,13 +185,12 @@ public partial class MainWindow : Window
         
         // 假设要点击窗口内的坐标 (100, 200)，可根据实际情况修改
 
-       //删除临时文件
-       string resultPath =_configuration[];
-       if( Directory.GetFilePath(resultPath).notExist){
-create(resultPath);
-}
-     string resultFile = resultPath+DateTime.Now().format;
-       File.Delete(_configuration[,]);
+        //删除临时文件
+        string resultPath =_configuration["ResultFilePath"];
+        log.EnsureLogDirectoryExists(resultPath);
+    
+         string resultFile = resultPath+ DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss")+".txt";
+         File.Delete(_configuration["CompareFilePath"]);
 
         int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
         int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
@@ -216,7 +215,7 @@ create(resultPath);
         Task.Run(() =>
         {
 
-            List<string> processed = new List <>();
+            List<string> processed = new List<string>();
             for (int i = 0; i <= time; i++)
             {
                 if (!_isProcessing)
@@ -228,9 +227,9 @@ create(resultPath);
                 {
 
 
-AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 10, 500);
+                    AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 10, 500);
 
-               
+
                     int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
 
                     MouseSimulator.Click(stock, y);
@@ -246,7 +245,9 @@ AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(t
                     StockInput.PressY();
                     Thread.Sleep(500);
                     StockInput.PressEnter();
-                    processed.add(id.Current.Name); Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
+                    processed.Add(id.Current.Name);
+                    
+                    Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
                     //if (element != null)
@@ -270,23 +271,31 @@ AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(t
 
             }
 
-           List needProcess = File.readAllLines(_configuration("ComparePath");
+            IEnumerable<string> needProcess = File.ReadAllLines(_configuration["CompareFilePath"]).Distinct();
+
+            List<string> notProcess = new List<string>();
+            foreach (string line in needProcess) {
+
+                if (processed.Contains(line)){
+                    //File.AppendLines(resultFile, line);
+                } else {
+                    notProcess.Add(line);
+                }
+            }
+
           
-          List<string> notProcess = new List();
-              foreach (string line in needProcess){
 
-if (processed.contains(line){
-    //File.AppendLines(resultFile, line);
-}else {
-    notProcess.add(line);
-}
-}
+            if (notProcess.Count > 0) {
+                File.WriteAllLines(resultFile, notProcess);
+                int success = time == 0 ? 1 : time - notProcess.Count;
+                log.info($"所有{time},成功:{success} 未处理:{notProcess.Count}, 请查看{resultFile}");
+            } else {
 
-File.writeAllLines(notProcess);
+                log.info($"全部处理成功 {time}");
+            }
 
-
-            //int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
-            int close_x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("CloseDiff", true);
+                //int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
+                int close_x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("CloseDiff", true);
             //int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
             MouseSimulator.Click(close_x, y);
             log.info($"点击关闭图标 x:{x} y:{y}");
