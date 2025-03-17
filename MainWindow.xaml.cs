@@ -216,6 +216,7 @@ public partial class MainWindow : Window
         {
 
             List<string> processed = new List<string>();
+            int errorTime = 0;
             for (int i = 0; i <= time; i++)
             {
                 if (!_isProcessing)
@@ -246,7 +247,7 @@ public partial class MainWindow : Window
                     Thread.Sleep(500);
                     StockInput.PressEnter();
                     processed.Add(id.Current.Name);
-                    
+
                     Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
@@ -262,11 +263,24 @@ public partial class MainWindow : Window
 
                     //    }
                     //}
-
+                    errorTime = 0;
                 }
                 catch (Exception ex)
                 {
-                    log.info($"发生错误: {ex.Message}");
+                    if (errorTime < 10)
+                    {
+                        log.info($"发生错误, 尝试刷新x:{x} y:{y}: {ex.Message}");
+                        errorTime++;
+                        i--;
+                    }
+                    else
+                    {
+                        errorTime = 0;
+                        log.info("发生错误, 已经刷新了10次，跳过该商品");
+                    }
+                   
+                    MouseSimulator.Click(x, y);
+                    Thread.Sleep(500);
                 }
 
             }
