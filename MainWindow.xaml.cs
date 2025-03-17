@@ -185,6 +185,13 @@ public partial class MainWindow : Window
         
         // 假设要点击窗口内的坐标 (100, 200)，可根据实际情况修改
 
+       //删除临时文件
+       string resultPath =_configuration[];
+       if( Directory.GetFilePath(resultPath).notExist){
+create(resultPath);
+}
+     string resultFile = resultPath+DateTime.Now().format;
+       File.Delete(_configuration[,]);
 
         int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
         int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
@@ -193,9 +200,9 @@ public partial class MainWindow : Window
         log.info($"点击刷新图标 x:{x} y:{y}");
         Thread.Sleep(500);
         //PrintElementInfo(mainWindow);
-        AutomationElement productId = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 5, 1000);
-        AutomationElement subject = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Subject"]), 5, 1000);
-        //AutomationElement submit = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Submit"]), 5, 1000);
+        AutomationElement productId = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 10, 500);
+        AutomationElement subject = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Subject"]), 10, 500);
+        //AutomationElement submit = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Submit"]), 10, 500);
         if (subject == null)
         {
             log.info($"刷新失败! 请检查配置项【Refresh】");
@@ -208,6 +215,8 @@ public partial class MainWindow : Window
 
         Task.Run(() =>
         {
+
+            List<string> processed = new List <>();
             for (int i = 0; i <= time; i++)
             {
                 if (!_isProcessing)
@@ -217,6 +226,10 @@ public partial class MainWindow : Window
                 }
                 try
                 {
+
+
+AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 10, 500);
+
                
                     int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
 
@@ -233,7 +246,7 @@ public partial class MainWindow : Window
                     StockInput.PressY();
                     Thread.Sleep(500);
                     StockInput.PressEnter();
-                    Thread.Sleep(int.Parse(_configuration["WaitSeconds"]));
+                    processed.add(id.Current.Name); Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
                     //if (element != null)
@@ -256,6 +269,21 @@ public partial class MainWindow : Window
                 }
 
             }
+
+           List needProcess = File.readAllLines(_configuration("ComparePath");
+          
+          List<string> notProcess = new List();
+              foreach (string line in needProcess){
+
+if (processed.contains(line){
+    //File.AppendLines(resultFile, line);
+}else {
+    notProcess.add(line);
+}
+}
+
+File.writeAllLines(notProcess);
+
 
             //int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
             int close_x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("CloseDiff", true);
