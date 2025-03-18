@@ -13,5 +13,5 @@
   "CloseDiff": "30", //关闭按钮和产品编号最右边距离
   "WaitMillSeconds": "600",
   "ResultFilePath": "result/",
-  "CompareFilePath": "C:/ZYing/stock_tmp.txt"
+  "CompareFilePath": "stock_tmp.txt"
 }
