@@ -4,10 +4,12 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <RootNamespace>stock_tool</RootNamespace>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-   
+ 
+      
     <!-- 核心：单文件模式 -->
     <PublishSingleFile>true</PublishSingleFile>
     <!-- 包含运行时（可选，按需） -->
