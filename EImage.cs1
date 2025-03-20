@@ -1,0 +1,1767 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using ZYing.Dialog;
+using ZYing.IO;
+using ZYing.Web;
+
+namespace ZYing.UI;
+
+public class EImage : EControl
+{
+	private enum MouseState
+	{
+		None,
+		Hover,
+		ChkHover,
+		ChkDown,
+		XHover,
+		XDown
+	}
+
+	public static IcoEnums BackIco = IcoEnums.water;
+
+	public static bool 允许显示 = false;
+
+	public static string 图片目录 = null;
+
+	private static OpenFileDialog _singleDialog;
+
+	private static SaveFileDialog _saveDialog;
+
+	private static EImage _instance = null;
+
+	private string _prefix = "";
+
+	private const int _w = 80;
+
+	private static int _dropsize = 700;
+
+	private System.Windows.Forms.Timer _delay;
+
+	private System.Windows.Forms.Timer _timer;
+
+	private ECircle _circle = new ECircle();
+
+	private Rectangle _thumb;
+
+	private Rectangle _rect;
+
+	private PictureBoxSizeMode _mode = PictureBoxSizeMode.StretchImage;
+
+	private int _rightNum;
+
+	private int _retry;
+
+	private string _url = "";
+
+	private long _ticks;
+
+	private int _percent;
+
+	private string _originUrl;
+
+	private const int ImageUniqueID = 42016;
+
+	public bool AllowShowUrl = true;
+
+	private bool _exam = true;
+
+	private bool _selectable;
+
+	private bool _selected;
+
+	private ImageState _state;
+
+	private Size _real = Size.Empty;
+
+	private string _md5;
+
+	private Image _img;
+
+	private MouseState _mstat;
+
+	private Color _borderColor = Color.Empty;
+
+	private int _borderWidth = 1;
+
+	public bool DropAll;
+
+	private bool _dragTo;
+
+	private bool _dragFrom;
+
+	private static readonly string[] _exts = new string[7] { ".bmp", ".jpg", ".jpeg", ".gif", ".tif", ".tiff", ".png" };
+
+	public static OpenFileDialog SingleDialog
+	{
+		get
+		{
+			if (_singleDialog == null)
+			{
+				_singleDialog = new OpenFileDialog
+				{
+					AddExtension = true,
+					CheckFileExists = true,
+					CheckPathExists = true,
+					Multiselect = false,
+					Filter = "所有图片|*.BMP;*.JPG;*.JPEG;*.GIF;*.TIF;*.TIFF;*.PNG|BMP图片|*.BMP|JPEG图片|*.JPG;*.JPEG|GIF图片|*.GIF|TIFF图片|*.TIF;*.TIFF|PNG图片|*.PNG"
+				};
+			}
+			return _singleDialog;
+		}
+	}
+
+	public static SaveFileDialog SaveDialog
+	{
+		get
+		{
+			if (_saveDialog == null)
+			{
+				_saveDialog = new SaveFileDialog
+				{
+					Filter = "图片文件|*.jpg"
+				};
+			}
+			return _saveDialog;
+		}
+	}
+
+	public static EImage Instance
+	{
+		get
+		{
+			if (_instance == null)
+			{
+				_instance = new EImage
+				{
+					Mode = PictureBoxSizeMode.AutoSize,
+					xSize = new Size(384, 384),
+					Editable = false
+				};
+			}
+			return _instance;
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue("")]
+	public string Prefix
+	{
+		get
+		{
+			if (string.IsNullOrEmpty(_prefix))
+			{
+				_prefix = "New" + DateTime.Now.ToString("yyyyMMddHHmmss");
+			}
+			return _prefix;
+		}
+		set
+		{
+			_prefix = value ?? "";
+		}
+	}
+
+	public static HttpClient HttpClient
+	{
+		get
+		{
+			HttpClient httpClient = HttpClientEx.Create();
+			httpClient.DefaultRequestHeaders.Add("accept", "*/*");
+			httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
+			return httpClient;
+		}
+	}
+
+	public Func<string, bool> OnOpening { get; set; }
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public Rectangle ThumbRect
+	{
+		get
+		{
+			return _thumb;
+		}
+		set
+		{
+			if (_thumb != value)
+			{
+				_thumb = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public Rectangle Rect
+	{
+		get
+		{
+			return _rect;
+		}
+		set
+		{
+			_rect = value;
+			Invalidate();
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(PictureBoxSizeMode.StretchImage)]
+	public PictureBoxSizeMode Mode
+	{
+		get
+		{
+			return _mode;
+		}
+		set
+		{
+			_mode = value;
+		}
+	}
+
+	public bool Loading
+	{
+		set
+		{
+			if (value)
+			{
+				_state = ImageState.Loading;
+				_percent = 0;
+				if (_timer == null)
+				{
+					_timer = new System.Windows.Forms.Timer
+					{
+						Interval = 20
+					};
+					_timer.Tick += delegate
+					{
+						Invalidate();
+					};
+				}
+				_timer.Start();
+			}
+			else if (_timer != null)
+			{
+				_timer.Stop();
+			}
+		}
+	}
+
+	[Category("外观")]
+	[DefaultValue(0)]
+	public int RightNumber
+	{
+		get
+		{
+			return _rightNum;
+		}
+		set
+		{
+			if (_rightNum != value)
+			{
+				_rightNum = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public string Url
+	{
+		get
+		{
+			return _url?.Replace("http://oss.hzzying.com", "https://oss.hzzying.com");
+		}
+		set
+		{
+			value = value.Https();
+			if (_url == value)
+			{
+				return;
+			}
+			_retry = 0;
+			_url = value;
+			_originUrl = null;
+			_md5 = null;
+			try
+			{
+
+
+
+                if (base.Parent is EPic ePic)
+                {
+                    string dir = Path.Combine(Get图片目录(), ePic.Prefix);
+                    if (Directory.Exists(dir))
+                    {
+                        string fileName = GetFileName();
+                        string path = Path.Combine(dir, fileName);
+                        if (File.Exists(path))
+                        {
+                            _url = path;
+                        }
+
+                        string text = Path.Combine(dir, "白框." + fileName);
+                        if (File.Exists(text))
+                        {
+                            _url = text;
+                        }
+                        else
+                        {
+                            text = Path.Combine(dir, "白框." + GetFileName());
+
+                            if (File.Exists(text))
+                            {
+                                _url = text;
+                            }
+
+                        }
+
+                    }
+                }
+
+                if (string.IsNullOrEmpty(_url))
+				{
+					Image = null;
+					State = ((!Editable) ? ImageState.OK : ImageState.Init);
+				}
+				else if (OSS.IsFile(_url))
+				{
+					FileLoadAsync();
+				}
+				else
+				{
+					_percent = 0;
+					State = ImageState.Loading;
+					DownLoadAsync();
+				}
+			}
+			catch (Exception)
+			{
+				_img = null;
+				State = ImageState.Error;
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(true)]
+	public bool Exam
+	{
+		get
+		{
+			return _exam;
+		}
+		set
+		{
+			if (_exam != value)
+			{
+				_exam = value;
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool ShowSize { get; set; }
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool Selectable
+	{
+		get
+		{
+			return _selectable;
+		}
+		set
+		{
+			if (_selectable != value)
+			{
+				_selectable = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool Selected
+	{
+		get
+		{
+			return _selected;
+		}
+		set
+		{
+			if (_selected != value)
+			{
+				_selected = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool Savable { get; set; }
+
+	public override bool Editable
+	{
+		get
+		{
+			return base.Editable;
+		}
+		set
+		{
+			base.Editable = value;
+			base.AllowDrop = value;
+			Invalidate();
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public EMenu RightMenu { get; set; }
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public ImageState State
+	{
+		get
+		{
+			return _state;
+		}
+		set
+		{
+			if (_state == value)
+			{
+				return;
+			}
+			_state = value;
+			if (value != ImageState.OK)
+			{
+				_img = null;
+				_md5 = null;
+				if (value == ImageState.Error)
+				{
+					this.Error?.Invoke(this, EventArgs.Empty);
+				}
+			}
+			Loading = value == ImageState.Loading;
+			Invalidate();
+		}
+	}
+
+	public Size Real => _real;
+
+	public string Md5 => _md5;
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public Image Image
+	{
+		get
+		{
+			return _img;
+		}
+		set
+		{
+			SetImage(value);
+		}
+	}
+
+	private MouseState mouseStat
+	{
+		get
+		{
+			return _mstat;
+		}
+		set
+		{
+			if (_mstat != value)
+			{
+				_mstat = value;
+				if ((uint)(value - 2) <= 3u)
+				{
+					Cursor = Cursors.Hand;
+				}
+				Invalidate();
+			}
+			if (value == MouseState.None && _state == ImageState.Init && Editable)
+			{
+				Cursor = Cursors.Hand;
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public override Color BorderColor
+	{
+		get
+		{
+			return _borderColor;
+		}
+		set
+		{
+			_borderColor = value;
+			Invalidate();
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public int BorderWidth
+	{
+		get
+		{
+			return _borderWidth;
+		}
+		set
+		{
+			if (_borderWidth < value)
+			{
+				_borderWidth = value;
+			}
+			else if (_borderWidth > value)
+			{
+				_borderWidth = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("外观")]
+	[DefaultValue(false)]
+	[Description("鼠标悬浮是否显示放大窗口")]
+	public bool IsDropDown { get; set; }
+
+	protected virtual Rectangle XRectangle => new Rectangle(base.Width - 20, 0, 20, 20);
+
+	protected virtual Rectangle ChkRectangle => new Rectangle(0, 0, 18, 18);
+
+	internal bool DragTo
+	{
+		get
+		{
+			return _dragTo;
+		}
+		set
+		{
+			if (_dragTo != value)
+			{
+				_dragTo = value;
+				Invalidate();
+			}
+		}
+	}
+
+	internal bool DragFrom
+	{
+		get
+		{
+			return _dragFrom;
+		}
+		set
+		{
+			if (_dragFrom != value)
+			{
+				_dragFrom = value;
+				Invalidate();
+			}
+		}
+	}
+
+	public event EventHandler Inserting;
+
+	public event Action<string, string> Replacing;
+
+	public event EventHandler Removing;
+
+	public event EventHandler SelectedChanged;
+
+	public event EventHandler ImageChanged;
+
+	public event Action<EImage, string> UrlChanged;
+
+	public event EventHandler Error;
+
+	public static string Get图片目录()
+	{
+		if (string.IsNullOrEmpty(图片目录))
+		{
+			string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "image");
+			if (!Directory.Exists(path))
+			{
+				Directory.CreateDirectory(path);
+			}
+			图片目录 = path;
+		}
+		return 图片目录;
+	}
+
+	public EImage()
+	{
+		base.AllowDrop = true;
+		base.ImeMode = ImeMode.Disable;
+		base.TabStop = false;
+		base.BackColor = Color.White;
+	}
+
+	private async void FileLoadAsync()
+	{
+		try
+		{
+			byte[] array = await Cache.GetBytesAsync(_url);
+			if (array != null && array.Length != 0)
+			{
+				_md5 = Cache.CalculateMD5(array);
+				Image = Cache.From(array);
+			}
+			else
+			{
+				SetImage(null);
+				State = ImageState.Error;
+			}
+		}
+		catch (Exception)
+		{
+			State = ImageState.Error;
+		}
+	}
+
+	public override int CompareTo(object obj)
+	{
+		if (obj is EImage eImage)
+		{
+			return RightNumber.CompareTo(eImage.RightNumber);
+		}
+		return -1;
+	}
+
+	private void Progress(int percent)
+	{
+		_percent = percent;
+		if (_state == ImageState.Loading)
+		{
+			Invalidate();
+		}
+	}
+
+	private async void DownLoadAsync(int retry = 0)
+	{
+		_ = 2;
+		try
+		{
+			_ticks = 0L;
+			_percent = 0;
+			string url = ((_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal) ? OSS.Origin(_url) : OSS.Thumb(_url));
+			byte[] array = await Cache.GetBytesAsync(url);
+			if (array == null || array.Length == 0)
+			{
+				array = await Cache.ReadAllBytesAsync(Cache.Save(await DownLoadAsync(url, Progress), url));
+			}
+			if (array != null && array.Length != 0)
+			{
+				_md5 = Cache.CalculateMD5(array);
+				SetImage(Cache.From(array));
+			}
+			else
+			{
+				SetImage(null);
+				State = ImageState.Error;
+			}
+		}
+		catch (Exception)
+		{
+			if (retry == 0)
+			{
+				EImage eImage = this;
+				int num = retry + 1;
+				retry = num;
+				eImage.DownLoadAsync(num);
+			}
+			else
+			{
+				State = ImageState.Error;
+			}
+		}
+	}
+
+	private async Task<byte[]> DownLoadAsync(string url, Action<int> progress = null)
+	{
+		byte[] result = default(byte[]);
+		object obj;
+		int num;
+		try
+		{
+			url = OSS.Repl国外(url);
+			byte[] array = await Cache.GetBytesAsync(url);
+			if (array == null || array.Length == 0)
+			{
+				array = await OSS.DownloadImage(url, HttpClient, Progress);
+			}
+			result = array;
+			return result;
+		}
+		catch (Exception ex)
+		{
+			obj = ex;
+			num = 1;
+		}
+		if (num != 1)
+		{
+			return result;
+		}
+		_ = (Exception)obj;
+		_md5 = null;
+		if (_retry++ > 0 || OSS.IsFile(url))
+		{
+			ExceptionDispatchInfo.Capture(new Exception()).Throw();
+		}
+		return await DownLoadAsync(url, progress);
+	}
+
+	public void Open()
+	{
+		string text = OpenFile();
+		if (text.Length != 0 && _url != text)
+		{
+			string url = _url;
+			Url = text;
+			this.Replacing?.Invoke(url, _url);
+		}
+	}
+
+	public string GetFileName()
+	{
+		string str = ((!_url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) ? Path.GetFileNameWithoutExtension(_url) : UrlHelper.GetPathWithoutExtension(_url));
+		return Safe.MD5(str) + ".jpg";
+	}
+
+	public async void Save()
+	{
+		string text = Get图片目录();
+		if (text.Length != 0)
+		{
+			await Saving(text, 弹出: true);
+		}
+	}
+
+	public async Task Saving(string dir, bool 弹出)
+	{
+		if (string.IsNullOrEmpty(_url) || _img == null || string.IsNullOrEmpty(dir))
+		{
+			return;
+		}
+		if (base.Parent is EPic ePic)
+		{
+			dir = Path.Combine(dir, ePic.Prefix);
+		}
+		if (!Directory.Exists(dir))
+		{
+			Directory.CreateDirectory(dir);
+		}
+		if (!OSS.IsFile(_url))
+		{
+			_originUrl = OSS.Origin(_url);
+		}
+		string fileName = GetFileName();
+		string path = Path.Combine(dir, fileName);
+		if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+		{
+			_md5 = EPaint.SaveMd5(path, _img);
+		}
+		else
+		{
+			string url = OSS.Origin(_url);
+			byte[] array = await Cache.GetBytesAsync(url);
+			if (array == null)
+			{
+				array = await DownLoadAsync(url);
+			}
+			if (array == null || array.Length == 0)
+			{
+				return;
+			}
+			Image img = Cache.From(array);
+			_md5 = EPaint.SaveMd5(path, img);
+		}
+		_url = path;
+		this.Replacing?.Invoke(_originUrl, path);
+		Invalidate();
+		if (弹出)
+		{
+			EDialog.Select(path);
+		}
+	}
+
+	public async Task<string> GetCachePath()
+	{
+		string url = OSS.Origin(_url);
+		string text = Cache.PathNormal(url);
+		if (!text.IsNullOrEmpty())
+		{
+			return text;
+		}
+		try
+		{
+			Loading = true;
+			byte[] array = await DownLoadAsync(url, Progress);
+			if (array != null && array.Length != 0)
+			{
+				SetImage(Cache.From(array));
+				return Cache.Save(array, url);
+			}
+			State = ImageState.Error;
+			return null;
+		}
+		catch (Exception)
+		{
+			State = ImageState.Error;
+			return null;
+		}
+		finally
+		{
+			Loading = false;
+		}
+	}
+
+	public Image ChangeMd5(Image img)
+	{
+		Bitmap bitmap = img as Bitmap;
+		PropertyItem propertyItem = bitmap.PropertyItems?.FirstOrDefault((PropertyItem x) => x.Id == 42016);
+		if (propertyItem == null)
+		{
+			propertyItem = (PropertyItem)typeof(PropertyItem).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null, new Type[0], null).Invoke(null);
+		}
+		propertyItem.Id = 42016;
+		string text = Guid.NewGuid().ToString("n");
+		propertyItem.Len = text.Length + 1;
+		propertyItem.Type = 2;
+		byte[] bytes = Encoding.ASCII.GetBytes(text + " ");
+		bytes[^1] = 0;
+		propertyItem.Value = bytes;
+		bitmap.SetPropertyItem(propertyItem);
+		return bitmap;
+	}
+
+	public void Replace(string path)
+	{
+		string url = _url;
+		Url = path;
+		this.Replacing?.Invoke(url, _url);
+	}
+
+	public async void 白框()
+	{
+		string text = Get图片目录();
+		if (text.Length != 0)
+		{
+			await 白框ing(text, 弹出: false);
+		}
+	}
+
+	public async Task 白框ing(string dir, bool 弹出)
+	{
+		if (string.IsNullOrEmpty(_url) || _img == null)
+		{
+			return;
+		}
+		if (base.Parent is EPic ePic)
+		{
+			dir = Path.Combine(dir, ePic.Prefix);
+		}
+		if (!Directory.Exists(dir))
+		{
+			Directory.CreateDirectory(dir);
+		}
+		string fname = GetFileName();
+		Path.Combine(dir, fname);
+		Image image;
+		if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+		{
+			image = _img;
+		}
+		else
+		{
+			string url = OSS.Origin(_url);
+			image = Cache.From(await DownLoadAsync(url));
+			if (image == null)
+			{
+				return;
+			}
+		}
+		string arg = OSS.Origin(_url);
+		string text = Path.Combine(dir, "白框." + fname);
+		Image image2 = EPaint.白框保存(text, image, ref _md5);
+		_url = text;
+		SetImage(image2);
+		this.Replacing?.Invoke(arg, _url);
+		if (弹出)
+		{
+			EDialog.Select(text);
+		}
+	}
+
+	public async Task 裁切(int w, int h)
+	{
+		string text = Get图片目录();
+		if (text.Length != 0)
+		{
+			await 裁切ing(text, new Size(w, h), 弹出: false);
+		}
+	}
+
+	public async Task 裁切ing(string dir, Size limit, bool 弹出)
+	{
+		if (string.IsNullOrEmpty(_url) || _img == null || _real.Equals(limit))
+		{
+			return;
+		}
+		if (base.Parent is EPic ePic)
+		{
+			dir = Path.Combine(dir, ePic.Prefix);
+		}
+		if (!Directory.Exists(dir))
+		{
+			Directory.CreateDirectory(dir);
+		}
+		string fname = GetFileName();
+		Path.Combine(dir, fname);
+		Image image;
+		if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+		{
+			if (_img == null)
+			{
+				return;
+			}
+			image = _img;
+		}
+		else
+		{
+			string url = OSS.Origin(_url);
+			image = Cache.From(await DownLoadAsync(url));
+			if (image == null)
+			{
+				return;
+			}
+		}
+		string arg = OSS.Origin(_url);
+		string text = Path.Combine(dir, "裁切." + fname);
+		Image image2 = EPaint.裁切(image, limit);
+		Cache.Save(text, image2);
+		_url = text;
+		SetImage(image2);
+		this.Replacing?.Invoke(arg, _url);
+		if (弹出)
+		{
+			EDialog.Select(text);
+		}
+	}
+
+	public async void 放大()
+	{
+		await 放大(Pic.大图片尺寸);
+	}
+
+	public async Task 放大(int max)
+	{
+		string text = Get图片目录();
+		if (text.Length != 0)
+		{
+			await 放大ing(text, max, 弹出: false);
+		}
+	}
+
+	public async Task 放大ing(string dir, bool 弹出)
+	{
+		await 放大ing(dir, Pic.大图片尺寸, 弹出);
+	}
+
+	public async Task 放大ing(string dir, int max, bool 弹出)
+	{
+		if (string.IsNullOrEmpty(_url) || _img == null)
+		{
+			return;
+		}
+		if (_real.Width >= max || _real.Height >= max)
+		{
+			await Saving(dir, 弹出);
+			return;
+		}
+		if (base.Parent is EPic ePic)
+		{
+			dir = Path.Combine(dir, ePic.Prefix);
+		}
+		if (!Directory.Exists(dir))
+		{
+			Directory.CreateDirectory(dir);
+		}
+		string fname = GetFileName();
+		string path = Path.Combine(dir, fname);
+		Image img;
+		if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+		{
+			if (_img == null)
+			{
+				return;
+			}
+			img = EPaint.放大保存(path, _img, max);
+		}
+		else
+		{
+			string url = OSS.Origin(_url);
+			img = Cache.From(await DownLoadAsync(url));
+			if (img == null || _real.Width >= max || _real.Height >= max)
+			{
+				return;
+			}
+			img = EPaint.放大保存(path, img, max);
+		}
+		string arg = OSS.Origin(_url);
+		path = Path.Combine(dir, "放大." + fname);
+		Image image = EPaint.放大保存(path, img, max, ref _md5);
+		_url = path;
+		SetImage(image);
+		this.Replacing?.Invoke(arg, _url);
+		if (弹出)
+		{
+			EDialog.Select(path);
+		}
+	}
+
+	public void ShowUrl()
+	{
+		if (AllowShowUrl && !(base.Parent is EPic { Editable: false }))
+		{
+			bool flag = 允许显示;
+			if (OnOpening != null)
+			{
+				flag = OnOpening(Url);
+			}
+			if (!flag && _state != ImageState.Error && Url.Length > 0 && OSS.IsValid(Url))
+			{
+				EDialog.Show("服务器图片地址不公开！");
+			}
+			else
+			{
+				EDialogImage.Instance.Show(this);
+			}
+		}
+	}
+
+	public void ChangeUrl(string str)
+	{
+		EPic ePic = base.Parent as EPic;
+		List<string> list = Split.ListString(str, ',', '，', '\n');
+		string text = list[0];
+		if (_url != text)
+		{
+			if (this.UrlChanged != null)
+			{
+				this.UrlChanged?.Invoke(this, text);
+			}
+			else if (ePic != null)
+			{
+				if (_state == ImageState.Init)
+				{
+					if (ePic.ReadOnly && !text.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+					{
+						EDialog.Show("只能添加远程图片！");
+						return;
+					}
+					ePic.AddRange(text);
+				}
+				else
+				{
+					ePic.ChangeUrl(_url, text);
+					Url = text;
+				}
+			}
+			else
+			{
+				Url = text;
+			}
+		}
+		if (list.Count > 1 && ePic != null)
+		{
+			list.RemoveAt(0);
+			ePic.AddRange(list.ToArray());
+		}
+	}
+
+	public void Set(string url, EImage m)
+	{
+		_url = url;
+		_img = m.Image;
+		_md5 = m.Md5;
+		State = ImageState.OK;
+	}
+
+	private void SetImage(Image value)
+	{
+		if (base.InvokeRequired)
+		{
+			Invoke(new Action<Image>(SetImage), value);
+			return;
+		}
+		try
+		{
+			Loading = false;
+			if (_img == value)
+			{
+				return;
+			}
+			if (value == null)
+			{
+				_real = Size.Empty;
+				_img = null;
+				_md5 = null;
+			}
+			else
+			{
+				if (!OSS.IsThumb(_url))
+				{
+					_real = value.Size;
+				}
+				_rect = EPaint.PreferRectangle(base.ClientRectangle, _mode, value.Size);
+				PictureBoxSizeMode mode = _mode;
+				if (mode == PictureBoxSizeMode.StretchImage || mode == PictureBoxSizeMode.Zoom)
+				{
+					_img = EPaint.Fill(value, new Size((int)((double)_rect.Width * 1.5), (int)((double)_rect.Height * 1.5)));
+				}
+				else
+				{
+					_img = value;
+				}
+				_state = ImageState.OK;
+				if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+				{
+					Size other = AutoAdjustSize();
+					if (!xSize.Equals(other))
+					{
+						xSize = other;
+					}
+				}
+			}
+			Invalidate();
+			this.ImageChanged?.Invoke(this, EventArgs.Empty);
+		}
+		catch (Exception)
+		{
+			State = ImageState.Error;
+		}
+	}
+
+	public Size AutoAdjustSize()
+	{
+		Size size = _rect.Size;
+		if (size.IsEmpty)
+		{
+			return size;
+		}
+		if (size.Width >= size.Height)
+		{
+			int num = Math.Min(size.Width, _dropsize);
+			int height = size.Height * num / size.Width;
+			size = new Size(num, height);
+		}
+		else
+		{
+			int num2 = Math.Min(size.Height, _dropsize);
+			int width = size.Width * num2 / size.Height;
+			size = new Size(width, num2);
+		}
+		return size;
+	}
+
+	private Point GetPosition(Control c)
+	{
+		Rectangle workingArea = Screen.FromControl(c).WorkingArea;
+		Control control = ((c.Parent is EPic) ? c.Parent : c);
+		Rectangle rectangle = control.RectangleToScreen(control.ClientRectangle);
+		Point result = new Point(rectangle.Left - Instance.Width - 10, rectangle.Top);
+		result.Y = EControl.AdjustY(control, result.Y);
+		if (workingArea.Height - result.Y < Instance.Height - 10)
+		{
+			result.Y = workingArea.Height - Instance.Height + 10;
+		}
+		return result;
+	}
+
+	private void DropDown()
+	{
+		ThumbRect = Rectangle.Empty;
+		EWinDrop preView = EWinDrop.PreView;
+		if (preView.Editor == base.Parent || preView.Trigger == this)
+		{
+			return;
+		}
+		if (_delay == null)
+		{
+			_delay = new System.Windows.Forms.Timer
+			{
+				Interval = 500
+			};
+			_delay.Tick += delegate
+			{
+				DropShow();
+			};
+		}
+		_delay.Start();
+	}
+
+	private void DropShow()
+	{
+		if (_delay != null)
+		{
+			_delay.Stop();
+		}
+		Control obj = ((base.Parent is EPic) ? base.Parent : this);
+		Rectangle workingArea = Screen.FromControl(obj).WorkingArea;
+		_dropsize = Math.Min(obj.PointToScreen(obj.Location).X - workingArea.X - 20, workingArea.Height - 50);
+		if (base.InvokeRequired)
+		{
+			Invoke(DropShow);
+		}
+		else
+		{
+			if (base.IsDisposed)
+			{
+				return;
+			}
+			EWinDrop preView = EWinDrop.PreView;
+			if (preView.Editor != base.Parent && preView.Trigger != this)
+			{
+				EImage instance = Instance;
+				preView.Hide();
+				instance.Mode = ((!DropAll) ? PictureBoxSizeMode.AutoSize : PictureBoxSizeMode.Normal);
+				preView.Editor = instance;
+				Size size = instance.AutoAdjustSize();
+				if (size.IsEmpty)
+				{
+					size = new Size(384, 384);
+				}
+				instance.xSize = size;
+				instance.Url = _url;
+				Point position = GetPosition(this);
+				preView.Show(this, position);
+			}
+		}
+	}
+
+	private void DropClose()
+	{
+		ThumbRect = Rectangle.Empty;
+		if (_delay != null)
+		{
+			_delay.Stop();
+		}
+		EWinDrop preView = EWinDrop.PreView;
+		if (preView.Editor is EImage && preView.Trigger == this)
+		{
+			preView.Hide();
+		}
+	}
+
+	private void DropMove(Point p)
+	{
+		EImage instance = Instance;
+		Rectangle rect = instance.Rect;
+		if (rect.Width <= instance.Width && rect.Height <= instance.Height)
+		{
+			ThumbRect = Rectangle.Empty;
+			return;
+		}
+		double num = (double)base.Width / (double)rect.Width;
+		double num2 = (double)base.Height / (double)rect.Height;
+		Rectangle thumbRect = new Rectangle(0, 0, (int)((double)instance.Width * num), (int)((double)instance.Height * num2));
+		thumbRect.X = Math.Min(Math.Max(p.X - thumbRect.Width / 2, 0), base.Width - thumbRect.Width);
+		thumbRect.Y = Math.Min(Math.Max(p.Y - thumbRect.Height / 2, 0), base.Height - thumbRect.Height);
+		rect.X = Math.Max((int)((double)(-thumbRect.X) / num), instance.Width - rect.Width);
+		rect.Y = Math.Max((int)((double)(-thumbRect.Y) / num2), instance.Height - rect.Height);
+		instance.Rect = rect;
+		ThumbRect = thumbRect;
+	}
+
+	public override void OnSelectedChanged()
+	{
+		if (this.SelectedChanged != null)
+		{
+			this.SelectedChanged(this, EventArgs.Empty);
+		}
+		else if (base.Parent is EPic ePic)
+		{
+			ePic.OnSelectedChanged();
+		}
+	}
+
+	public string OpenFile()
+	{
+		if (SingleDialog.ShowDialog(this) != DialogResult.OK)
+		{
+			return "";
+		}
+		return SingleDialog.FileName;
+	}
+
+	protected virtual void OnInsert()
+	{
+		if (this.Inserting != null)
+		{
+			this.Inserting(this, EventArgs.Empty);
+		}
+		else if (Editable && !ReadOnly && !Selectable && SingleDialog.ShowDialog() == DialogResult.OK)
+		{
+			Url = SingleDialog.FileName;
+		}
+	}
+
+	protected virtual void OnRemove()
+	{
+		if (this.Removing != null)
+		{
+			this.Removing(this, EventArgs.Empty);
+		}
+	}
+
+	protected override void OnResize(EventArgs e)
+	{
+		_circle.Position = new Point((base.Width - 1) / 2 - ((base.Width > 80) ? 25 : 0), (base.Height - 1) / 2);
+		if (_img != null && _mode != PictureBoxSizeMode.AutoSize)
+		{
+			_rect = EPaint.PreferRectangle(base.ClientRectangle, _mode, _img.Size);
+		}
+		Invalidate();
+		if (base.Parent is EWinDrop eWinDrop)
+		{
+			eWinDrop.Size = xSize;
+			if (eWinDrop.Trigger != null)
+			{
+				eWinDrop.Location = GetPosition(eWinDrop.Trigger);
+			}
+		}
+	}
+
+	protected override void OnMouseEnter(EventArgs e)
+	{
+		if (_state == ImageState.OK)
+		{
+			mouseStat = MouseState.Hover;
+			if (IsDropDown && !string.IsNullOrEmpty(_url))
+			{
+				DropDown();
+			}
+		}
+	}
+
+	protected override void OnMouseLeave(EventArgs e)
+	{
+		mouseStat = MouseState.None;
+		if (IsDropDown)
+		{
+			DropClose();
+		}
+	}
+
+	protected override void OnMouseDown(MouseEventArgs e)
+	{
+		if (Editable && e.Button == MouseButtons.Left)
+		{
+			if (_selectable)
+			{
+				mouseStat = MouseState.ChkDown;
+			}
+			else if (XRectangle.Contains(e.Location))
+			{
+				mouseStat = MouseState.XDown;
+			}
+		}
+		else if (e.Button == MouseButtons.Right && !ReadOnly)
+		{
+			RightMenu?.Show(this, e.Location);
+		}
+	}
+
+	protected override void OnMouseMove(MouseEventArgs e)
+	{
+		if (e.Button == MouseButtons.None)
+		{
+			if (_selectable)
+			{
+				mouseStat = MouseState.ChkHover;
+			}
+			else if (Editable)
+			{
+				if (_state == ImageState.Init || _state == ImageState.Loading)
+				{
+					mouseStat = MouseState.None;
+				}
+				else if (XRectangle.Contains(e.Location))
+				{
+					mouseStat = MouseState.XHover;
+				}
+				else
+				{
+					mouseStat = MouseState.Hover;
+				}
+			}
+			if (IsDropDown && _mode == PictureBoxSizeMode.Zoom && !DropAll)
+			{
+				DropMove(e.Location);
+			}
+		}
+		else if (Editable && e.Button == MouseButtons.Left && _state == ImageState.OK && mouseStat == MouseState.Hover)
+		{
+			DragFrom = true;
+			DoDragDrop(Url, DragDropEffects.Link);
+		}
+	}
+
+	protected override void OnMouseDoubleClick(MouseEventArgs e)
+	{
+		ShowUrl();
+	}
+
+	protected override void OnMouseUp(MouseEventArgs e)
+	{
+		if (e.Button == MouseButtons.Left)
+		{
+			if (_selectable)
+			{
+				mouseStat = MouseState.ChkHover;
+				Selected = !Selected;
+				OnSelectedChanged();
+			}
+			else if (Editable)
+			{
+				if (_state == ImageState.Init)
+				{
+					OnInsert();
+				}
+				else if (XRectangle.Contains(e.Location))
+				{
+					OnRemove();
+					Url = "";
+					mouseStat = MouseState.None;
+				}
+				else
+				{
+					Cursor = Cursors.Default;
+				}
+			}
+		}
+		DragFrom = false;
+	}
+
+	protected override void OnDragEnter(DragEventArgs e)
+	{
+		if (!Editable)
+		{
+			return;
+		}
+		if (e.Data.GetDataPresent(DataFormats.FileDrop))
+		{
+			e.Effect = DragDropEffects.Copy;
+		}
+		else if (e.Data.GetDataPresent(DataFormats.Text))
+		{
+			e.Effect = DragDropEffects.Link;
+			if (!Selectable)
+			{
+				DragTo = true;
+			}
+		}
+		else
+		{
+			e.Effect = DragDropEffects.None;
+		}
+	}
+
+	protected override void OnDragLeave(EventArgs e)
+	{
+		if (Editable && !Selectable)
+		{
+			DragTo = false;
+		}
+	}
+
+	protected override void OnDragDrop(DragEventArgs e)
+	{
+		DragTo = false;
+		EPic ePic = base.Parent as EPic;
+		if (e.Effect == DragDropEffects.Link)
+		{
+			string text = e.Data.GetData(DataFormats.Text, autoConvert: true).ToString();
+			int num = text.IndexOf('?');
+			if (num <= -1 || text.Substring(0, num).MatchIgnore(_exts))
+			{
+				if (ePic == null)
+				{
+					Url = text;
+				}
+				else if (State == ImageState.Error)
+				{
+					Url = text;
+				}
+				else
+				{
+					ePic.Shift(text, this);
+				}
+			}
+		}
+		else
+		{
+			if (ePic == null)
+			{
+				return;
+			}
+			string[] array = (string[])e.Data.GetData(DataFormats.FileDrop, autoConvert: true);
+			if (array == null || array.Length == 0)
+			{
+				return;
+			}
+			List<string> list = new List<string>();
+			string[] array2 = array;
+			foreach (string text2 in array2)
+			{
+				string text3 = Path.GetExtension(text2).ToLower();
+				for (int j = 0; j < _exts.Length; j++)
+				{
+					if (text3 == _exts[j])
+					{
+						list.Add(text2);
+						break;
+					}
+				}
+			}
+			ePic.AddRange(list.ToArray());
+		}
+	}
+
+	private void DrawBorder(Graphics g, Color color)
+	{
+		if (color == Color.Empty)
+		{
+			color = Color.FromArgb(80, 0, 0, 0);
+		}
+		using (Pen pen = new Pen(color, _borderWidth))
+		{
+			if (_dragFrom)
+			{
+				pen.DashStyle = DashStyle.Dash;
+			}
+			g.DrawRectangle(pen, new Rectangle(_borderWidth - 1, _borderWidth - 1, base.Width - _borderWidth, base.Height - _borderWidth));
+		}
+		if (_dragTo)
+		{
+			using (Pen pen2 = new Pen(Color.Blue, _borderWidth))
+			{
+				g.DrawLine(pen2, new Point(0, 0), new Point(0, base.Height));
+			}
+		}
+	}
+
+	protected override void OnPaint(PaintEventArgs e)
+	{
+		try
+		{
+			Graphics graphics = e.Graphics;
+			Color color = (base.Enabled ? _borderColor : ETheme.Current.ColorDisabledBorder);
+			if (_state == ImageState.Loading)
+			{
+				_circle.Draw(graphics);
+				if (base.Width > 80)
+				{
+					Point position = _circle.Position;
+					position.X += 22;
+					position.Y -= base.FontHeight / 2;
+					EPaint.DrawText(graphics, _percent + "%", ETheme.Current.ColorText, position);
+				}
+				if (_percent < 99)
+				{
+					long ticks = DateTime.Now.Ticks;
+					if (_ticks > 0 && ticks - _ticks > 350000)
+					{
+						_percent = Math.Min(99, _percent + 1);
+					}
+					_ticks = ticks;
+				}
+			}
+			else if (_state == ImageState.OK)
+			{
+				try
+				{
+					if (_img != null)
+					{
+						Rectangle rect = ((_mode == PictureBoxSizeMode.Normal) ? base.ClientRectangle : _rect);
+						if (!base.Enabled)
+						{
+							graphics.DrawImage(EPaint.Gray(_img, 50), rect);
+						}
+						else if (!_selectable || Selected || _state != ImageState.OK)
+						{
+							graphics.DrawImage(_img, rect);
+						}
+						else
+						{
+							graphics.DrawImage(EPaint.Opacity(_img, 50), rect);
+						}
+					}
+					if (base.Enabled)
+					{
+						if (_exam)
+						{
+							if (string.IsNullOrEmpty(_url))
+							{
+								color = Color.DarkCyan;
+								EPaint.DrawText(graphics, "空", color, new Point(base.Width - 20, base.Height - 22));
+							}
+							else if (OSS.IsFile(_url))
+							{
+								color = Color.OrangeRed;
+								EPaint.DrawText(graphics, "本机", color, new Point(base.Width - 34, base.Height - 22));
+							}
+							else if (OSS.IsRemote(_url))
+							{
+								color = Color.SteelBlue;
+								EPaint.DrawText(graphics, "远程", color, new Point(base.Width - 34, base.Height - 22));
+							}
+						}
+						if (!_real.IsEmpty)
+						{
+							if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+							{
+								using SolidBrush brush = new SolidBrush(Color.DimGray);
+								graphics.DrawString(_real.Width + "x" + _real.Height, ETheme.VerdanaTiny, brush, new PointF(8f, base.Height - 20));
+							}
+							else if (ShowSize && OSS.IsRemote(_url))
+							{
+								Font font = new Font("Verdana", 10f, FontStyle.Regular, GraphicsUnit.Pixel);
+								using (SolidBrush brush2 = new SolidBrush(Color.Black))
+								{
+									graphics.DrawString(_real.Width + "x" + _real.Height, font, brush2, new PointF(7f, base.Height - 17));
+								}
+								using SolidBrush brush3 = new SolidBrush(Color.FromArgb(230, 230, 230));
+								graphics.DrawString(_real.Width + "x" + _real.Height, font, brush3, new PointF(6f, base.Height - 18));
+							}
+						}
+						if (_thumb.Width > 0)
+						{
+							using Pen pen = new Pen(Color.LightGray);
+							pen.DashStyle = DashStyle.Dash;
+							graphics.DrawRectangle(pen, _thumb);
+						}
+					}
+				}
+				catch
+				{
+					Thread.Sleep(10);
+					Invalidate();
+				}
+			}
+			else if (_state == ImageState.Init)
+			{
+				if (base.Width > 50)
+				{
+					Image image = Icos.Get(IcoEnums.newpic);
+					graphics.DrawImage(image, EPaint.PreferRectangle(base.ClientRectangle, PictureBoxSizeMode.CenterImage, image.Size));
+				}
+			}
+			else if (_state == ImageState.Error)
+			{
+				Image image2 = Icos.Get(BackIco);
+				graphics.DrawImage(image2, EPaint.PreferRectangle(base.ClientRectangle, PictureBoxSizeMode.CenterImage, EPaint.Min(xSize, image2.Size)));
+				EPaint.DrawText(graphics, "失败", Color.Red, new Point(base.Width - 34, base.Height - 22));
+				color = Color.Red;
+			}
+			ETheme current = ETheme.Current;
+			if (_selectable)
+			{
+				color = (_selected ? current.ColorBorderFocus : current.ColorDisabledBorder);
+			}
+			DrawBorder(graphics, color);
+			if (base.Enabled)
+			{
+				if (_selectable)
+				{
+					using Pen pen2 = new Pen(_selected ? current.ColorBorderFocus : current.ColorDisabledBorder);
+					Rectangle chkRectangle = ChkRectangle;
+					using (Brush brush4 = new SolidBrush(Color.White))
+					{
+						graphics.FillRectangle(brush4, chkRectangle);
+					}
+					graphics.DrawRectangle(pen2, chkRectangle);
+					if (_selected)
+					{
+						ECheck.DrawRect(graphics, chkRectangle, current.ColorBorderFocus);
+					}
+				}
+				else if (Editable)
+				{
+					switch (_mstat)
+					{
+					case MouseState.Hover:
+						EPaint.DrawX(e.Graphics, XRectangle, Color.White, Color.FromArgb(190, 60, 60));
+						break;
+					case MouseState.XHover:
+						EPaint.DrawX(graphics, XRectangle, Color.White, Color.FromArgb(240, 80, 80));
+						break;
+					case MouseState.XDown:
+						EPaint.DrawX(graphics, XRectangle, Color.White, Color.FromArgb(210, 70, 70));
+						break;
+					}
+				}
+				else if (_mstat == MouseState.Hover && base.Text.Length > 0)
+				{
+					Rectangle r = new Rectangle(0, 5, base.Width - 6, base.Height);
+					Font verdanaSmallBold = ETheme.VerdanaSmallBold;
+					Color color2 = Color.FromArgb(30, Color.White);
+					EPaint.DrawText(graphics, base.Text, verdanaSmallBold, color2, new Rectangle(r.X - 1, r.Y, r.Width, r.Height), IntTextFormatFlags.Right);
+					EPaint.DrawText(graphics, base.Text, verdanaSmallBold, color2, new Rectangle(r.X + 1, r.Y, r.Width, r.Height), IntTextFormatFlags.Right);
+					EPaint.DrawText(graphics, base.Text, verdanaSmallBold, color2, new Rectangle(r.X, r.Y - 1, r.Width, r.Height), IntTextFormatFlags.Right);
+					EPaint.DrawText(graphics, base.Text, verdanaSmallBold, color2, new Rectangle(r.X, r.Y + 1, r.Width, r.Height), IntTextFormatFlags.Right);
+					EPaint.DrawText(graphics, base.Text, ETheme.VerdanaSmallBold, Color.DarkGreen, r, IntTextFormatFlags.Right);
+				}
+			}
+			if (base.Parent is EPic)
+			{
+				if (_rightNum > 0)
+				{
+					Icos.DrawNumber(graphics, new Point(base.Width - 5, base.Height - 15), _rightNum);
+				}
+			}
+			else if (_rightNum > 1)
+			{
+				Icos.DrawNumber(graphics, new Point(base.Width - 5, base.Height - 15), _rightNum);
+			}
+		}
+		catch (Exception)
+		{
+		}
+	}
+}

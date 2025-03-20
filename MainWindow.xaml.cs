@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Markup;
 using Microsoft.Extensions.Configuration;
 
 namespace stock_tool;
@@ -17,7 +18,7 @@ public partial class MainWindow : Window
     private IConfiguration _configuration;
     private Log log;
 
-    private static string CONFIG_FILE = "config.json";
+    private static string CONFIG_FILE = "stock_config.json";
 
     // 定义全局键盘钩子的常量
     private const int WH_KEYBOARD_LL = 13;
@@ -116,10 +117,20 @@ public partial class MainWindow : Window
 
     private void LoadConfiguration()
     {
-        _configuration = new ConfigurationBuilder()
-           .SetBasePath(Directory.GetCurrentDirectory())
-           .AddJsonFile(CONFIG_FILE, optional: false, reloadOnChange: true)
-           .Build();
+        try
+        {
+            _configuration = new ConfigurationBuilder()
+             .SetBasePath(Directory.GetCurrentDirectory())
+             .AddJsonFile(CONFIG_FILE, optional: false, reloadOnChange: true)
+             .Build();
+            return;
+        }
+        catch (Exception e)
+        {
+
+            log.info($"读取配置文件失败: {e.Message}");
+        }
+
     }
 
     private int ConvertFromConfig(string config, bool isWidth) {
@@ -163,7 +174,7 @@ public partial class MainWindow : Window
       
         if (targetWindow == null)
         {
-            log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
+            log.info($"找不到 【{targetElementTitle}】,请打开某商品");
             return;
         }
 
@@ -228,8 +239,10 @@ public partial class MainWindow : Window
                 {
 
 
-                    AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 10, 500);
-
+                    AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 20, 100);
+                    if (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$")) { 
+                        throw new Exception("ID错误");
+                    }
 
                     int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
 
@@ -242,13 +255,12 @@ public partial class MainWindow : Window
                     //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
                     //MouseSimulator.ClickElementCenter(submit);
                     //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
-                    Thread.Sleep(1000);
+                    Thread.Sleep(200);
+                    Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
                     StockInput.PressY();
-                    Thread.Sleep(500);
+                    Thread.Sleep(100);
                     StockInput.PressEnter();
                     processed.Add(id.Current.Name);
-
-                    Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
                     //if (element != null)
@@ -280,6 +292,8 @@ public partial class MainWindow : Window
                     }
                    
                     MouseSimulator.Click(x, y);
+                    Thread.Sleep(100);
+                    StockInput.PressEnter();
                     Thread.Sleep(500);
                 }
 
@@ -441,7 +455,11 @@ public partial class MainWindow : Window
         {
             try
             {
-                return func();
+                T t = func();
+                if (t == null) {
+                    throw new Exception("null");
+                }
+                return t;
             }
             catch (Exception ex)
             {
