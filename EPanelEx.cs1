@@ -1,3 +1,4 @@
+using Enumer;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -8,8 +9,10 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
+using ZYing.Detail;
 using ZYing.Interface;
 using ZYing.Web;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace ZYing.UI;
 
@@ -515,7 +518,16 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-	public void Clear(bool isclose = true)
+	public void MyRemove(string key)
+    {
+        EControl eControl = this[key];
+        if (eControl != null)
+        {
+            Remove(eControl);
+		}
+    }
+
+    public void Clear(bool isclose = true)
 	{
 		coursl = 0;
 		for (int i = 0; i < base.Pages.Count; i++)
@@ -849,8 +861,7 @@ public class EPanelEx : EPanelBase
 						EStockEdit table = null;
 						EButton button = null;
 						EText all = null;
-
-						foreach (EControl con in this.Controls[0].Controls[0].Controls)
+                        foreach (EControl con in base.Controls[0].Controls[0].Controls)
 						{
 							if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
 							{
@@ -860,7 +871,7 @@ public class EPanelEx : EPanelBase
 							{
 								button = btn1;
 							}
-							if (con is ZYing.Detail.SaleLayer sl && sl.Name.Equals("inner"))
+							if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
 							{
 
 								foreach (EControl con1 in sl.Controls)
@@ -956,32 +967,58 @@ public class EPanelEx : EPanelBase
 							}
 						}
 
+						int currentNum = 0;
 
-
-						int currentNum = processCourse(eGallery, eTurn);
-						string str = eGallery.Cells[currentNum].Name;
-						bool isInteger = Regex.IsMatch(str, @"^-?\d+$");
-						if (isInteger)
-						{
-                            foreach (EControl eControl in base.Pages)
+						string currentName = Page.Name;
+					    foreach (ICell cell in eGallery.Cells)
+                        {
+                            if (cell.Name == currentName)
                             {
-                                if (eControl.Name != str && eControl.Name != Page.Name)
-                                {
-                                    Remove(eControl);
-                                    break;
-                                }
+								break;
                             }
-                            this.CreatePage(eGallery, str);
-							
+                            currentNum++;
                         }
-						button.MyClick();
-					}
+						currentNum++;
+                        if (currentNum >= eGallery.Cells.Count) {
+							currentNum = 0;
+							int p = eTurn.Page + 1;
+							if (p > eTurn.TotalPages)
+							{
+								eTurn.Page = 1;
+							}
+							else {
+								eTurn.Page = p;
+							}
+							eTurn.MyChange();
+
+                            Thread.Sleep(200);
+                            GC.Collect();
+                            eGallery.Refresh();
+                        }
+					
+						string str = eGallery.Cells[currentNum].Name;
+                        List<string> toRemove = new List<string>();
+                        foreach (EControl eControl in this.Pages)
+                        {
+                            if (eControl.Name != str && eControl.Name != Page.Name)
+                            {
+								toRemove.Add(eControl.Name);
+                                   
+                            }
+                        }
+						Thread.Sleep(50);
+                        this.CreatePage(eGallery, str);
+						eGallery.CurrentCell = eGallery.Cells[currentNum];
+                        Thread.Sleep(50);
+                        toRemove.ForEach(this.MyRemove);
+                       
+                        button.MyClick();
+     
+                    }
 				}
                 catch (Exception ex)
                 {
-                    List<string> list = new List<string>();
-                    list.Add(e.ToString());
-                    File.AppendAllLines("stock_tmp_error.txt", list);
+                    File.AppendAllLines("stock_tmp_error.txt", [ex.ToString()]);
 
                 }
 
@@ -1033,14 +1070,15 @@ public class EPanelEx : EPanelBase
             {
                 eTurn.Page = page;
                 eTurn.MyChange();
-                Thread.Sleep(600);
-                File.AppendAllLinesAsync("stock_tmp.txt", eGallery.Cells.Select(c => c.Name));
+                Thread.Sleep(200);
+				GC.Collect();
+                File.AppendAllLinesAsync("stock_tmp.txt", eGallery.Cells.Select(c => c.Name).Sort());
 
             }
         }
         if (coursl == 0)
         {
-            File.AppendAllLinesAsync("stock_tmp.txt", eGallery.Cells.Select(c => c.Name));
+            File.AppendAllLinesAsync("stock_tmp.txt", eGallery.Cells.Select(c => c.Name).Sort());
         }
         int currentNum = coursl % eTurn.PageSize;
         if (coursl < eGallery.MaxCount)

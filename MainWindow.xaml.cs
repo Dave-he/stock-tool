@@ -256,10 +256,10 @@ public partial class MainWindow : Window
                     //MouseSimulator.ClickElementCenter(submit);
                     //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
                     Thread.Sleep(200);
-                    Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
                     StockInput.PressY();
                     Thread.Sleep(100);
                     StockInput.PressEnter();
+                    Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
                     processed.Add(id.Current.Name);
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
@@ -333,6 +333,7 @@ public partial class MainWindow : Window
     }
 
     private int GetMaxCount(AutomationElement mainWindow) {
+
         AutomationElement total = AutomationSearchHelper.FindFirstElementById(mainWindow, "lblTotal");
 
         Match match = Regex.Match(total.Current.Name, @"\d+");
