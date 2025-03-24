@@ -968,7 +968,6 @@ public class EPanelEx : EPanelBase
 						}
 
 						int currentNum = 0;
-
 						string currentName = Page.Name;
 					    foreach (ICell cell in eGallery.Cells)
                         {
@@ -978,42 +977,42 @@ public class EPanelEx : EPanelBase
                             }
                             currentNum++;
                         }
-						currentNum++;
-                        if (currentNum >= eGallery.Cells.Count) {
-							currentNum = 0;
+                        currentNum++;
+						if (currentNum == eGallery.Cells.Count)
+						{
 							int p = eTurn.Page + 1;
 							if (p > eTurn.TotalPages)
 							{
 								eTurn.Page = 1;
 							}
-							else {
+							else
+							{
 								eTurn.Page = p;
 							}
 							eTurn.MyChange();
+							Thread.Sleep(50);
+							button.MyClick();
+						} else if(currentNum > eGallery.Cells.Count) {
+                            eGallery.CurrentCell = eGallery.Cells[0];
+                            this.CreatePage(eGallery, eGallery.Cells[0].Name);
+                        } else {
+							string str = eGallery.Cells[currentNum].Name;
+							List<string> toRemove = new List<string>();
+							foreach (EControl eControl in this.Pages)
+							{
+								if (eControl.Name != str && eControl.Name != Page.Name)
+								{
+									toRemove.Add(eControl.Name);
 
-                            Thread.Sleep(200);
-                            GC.Collect();
-                            eGallery.Refresh();
-                        }
-					
-						string str = eGallery.Cells[currentNum].Name;
-                        List<string> toRemove = new List<string>();
-                        foreach (EControl eControl in this.Pages)
-                        {
-                            if (eControl.Name != str && eControl.Name != Page.Name)
-                            {
-								toRemove.Add(eControl.Name);
-                                   
-                            }
-                        }
-						Thread.Sleep(50);
-                        this.CreatePage(eGallery, str);
-						eGallery.CurrentCell = eGallery.Cells[currentNum];
-                        Thread.Sleep(50);
-                        toRemove.ForEach(this.MyRemove);
-                       
-                        button.MyClick();
-     
+								}
+							}
+							Thread.Sleep(50);
+							this.CreatePage(eGallery, str);
+							eGallery.CurrentCell = eGallery.Cells[currentNum];
+							Thread.Sleep(50);
+							toRemove.ForEach(this.Remove);
+							button.MyClick();
+						}
                     }
 				}
                 catch (Exception ex)

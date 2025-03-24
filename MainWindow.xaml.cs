@@ -339,8 +339,8 @@ public partial class MainWindow : Window
         Match match = Regex.Match(total.Current.Name, @"\d+");
         if (match.Success)
         {
-
-            return int.Parse(match.Value);
+            int totalNum = int.Parse(match.Value);
+            return totalNum + totalNum / 60;
         }
         return 0;
     }
