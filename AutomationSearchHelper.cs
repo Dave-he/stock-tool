@@ -268,8 +268,8 @@ namespace stock_tool
                 int rowCount = gridPattern.Current.RowCount;
                 int columnCount = gridPattern.Current.ColumnCount;
 
-                log.info($"表格 {tableElement.Current.Name}  行数: {rowCount}");
-                log.info($"表格 {tableElement.Current.AutomationId} 列数: {columnCount}");
+                Logger.Info($"表格 {tableElement.Current.Name}  行数: {rowCount}");
+                Logger.Info($"表格 {tableElement.Current.AutomationId} 列数: {columnCount}");
 
                 // 可以进一步遍历单元格
                 for (int row = 0; row < rowCount; row++)
@@ -280,14 +280,14 @@ namespace stock_tool
                         if (cell != null)
                         {
                             string cellName = cell.Current.Name;
-                            log.info($"第 {row + 1} 行，第 {col + 1} 列的单元格名称: {cellName}");
+                            Logger.Info($"第 {row + 1} 行，第 {col + 1} 列的单元格名称: {cellName}");
                         }
                     }
                 }
             }
             else
             {
-                log.info("找到的元素不支持 GridPattern，可能不是表格。");
+                Logger.Info("找到的元素不支持 GridPattern，可能不是表格。");
             }
         }
 
@@ -314,7 +314,7 @@ namespace stock_tool
         /// </summary>
         /// <param name="windowElement">要激活的窗体元素</param>
         /// <returns>如果激活成功返回 true，否则返回 false</returns>
-        public static bool TryActivateWindow(AutomationElement windowElement, Log log)
+        public static bool TryActivateWindow(AutomationElement windowElement)
         {
             if (windowElement.TryGetCurrentPattern(WindowPattern.Pattern, out object pattern))
             {
@@ -327,7 +327,7 @@ namespace stock_tool
                 }
                 catch (Exception ex)
                 {
-                    log.info($"激活窗体时发生错误: {ex.Message}");
+                    Logger.Info($"激活窗体时发生错误: {ex.Message}");
                 }
             }
             return false;

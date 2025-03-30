@@ -1,17 +1,20 @@
 {
   "TargetWindowTitle": "分销系统",
-  "LogFilePath": "log/log.txt",
+  "LogFilePath": "log/",
+  "ImagePath": "image",
   "TargetElementTitle": "产品详细",
   "ID": "lblID",
   "TableId": "vtbl",
   "Submit": "btnSubmit1",
   "Group": "lblGroup",
-  "RefreshRight": "55", //刷新图标偏移量
-  "RefreshTop": "20",
-  "StockRight": "110",
+  "RefreshRight": "100", //刷新图标偏移量
+  "RefreshTop": "25",
+  "StockRight": "180",
+  "SaveRight": "290",
+  "WhiteRight": "230",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "30", //关闭按钮和产品编号最右边距离
-  "WaitMillSeconds": "600",
+  "WaitMillSeconds": "1000",
   "ResultFilePath": "result/",
   "CompareFilePath": "stock_tmp.txt"
 }

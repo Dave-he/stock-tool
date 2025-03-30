@@ -1,20 +1,20 @@
-using Enumer;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
-using ZYing.Detail;
+using ZYing.Data;
 using ZYing.Interface;
 using ZYing.Web;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace ZYing.UI;
+
 
 [DefaultProperty("Items")]
 [ClassInterface(ClassInterfaceType.AutoDispatch)]
@@ -523,14 +523,27 @@ public class EPanelEx : EPanelBase
         EControl eControl = this[key];
         if (eControl != null)
         {
+			foreach (EControl con in eControl.Controls) {
+				if (con is EPic pic) {
+					ETheme.Release(pic);
+                }
+				
+			}
+
+
+			eControl.MyRelease();
+
+			((Detail.Sale)eControl).Reset();
+
+			//eControl.Dispose();
             Remove(eControl);
 		}
     }
 
     public void Clear(bool isclose = true)
 	{
-		coursl = 0;
-		for (int i = 0; i < base.Pages.Count; i++)
+        Server.Instance.Stop();
+        for (int i = 0; i < base.Pages.Count; i++)
 		{
 			EControl eControl = base.Pages[i];
 			base.OnRemove(eControl);
@@ -546,15 +559,15 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-	public void Init()
+    public void Init()
 	{
-        coursl = 0;
         base.Pages.Clear();
 		_dict.Clear();
 		_queue.Clear();
 	}
 
-	protected virtual void OnClose()
+
+    protected virtual void OnClose()
 	{
 		try
 		{
@@ -811,11 +824,247 @@ public class EPanelEx : EPanelBase
 		Cursor = Cursors.Default;
 	}
 
-	protected override void OnMouseClick(MouseEventArgs e)
+	private async Task whiteAll(Detail.Sale sale, List<string> items)
+	{
+		object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+		if (zClient == null)
+		{
+			MessageBox.Show("Collect ZClient is Null");
+			return;
+		}
+
+		int num = -1;
+		MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+		{
+		typeof(string),
+		typeof(string)
+		}, null);
+
+		string logtime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss");
+		string logpath = Path.GetFullPath("log/" + logtime + "/");
+		if (!Directory.Exists(logpath))
+		{
+			Directory.CreateDirectory(logpath);
+		}
+
+		foreach (string id in items)
+		{
+			if (id.Length == 0)
+			{
+				continue;
+			}
+
+			object[] parameters2 = new object[2] { "id", id };
+			object paraTask = posAsync.Invoke(zClient, parameters2);
+			Task task2 = paraTask as Task;
+			Type type2 = paraTask.GetType().GetGenericArguments()[0];
+			PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+			await task2;
+			object value2 = paraProperty.GetValue(paraTask);
+			string text = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet).ToJson();
+			File.WriteAllText(logpath + "text-" + id + ".json", text);
+			JsonObject jsonObject = JsonObject.Create(text);
+			JsonArray root = jsonObject.GetArray("root");
+			foreach (JsonObject node in root)
+			{
+				List<string> list = node.GetArray("sale_pic").Select(c => c.ToString()).ToList();
+				foreach (string line in list)
+				{
+					if (line.Length <= 0)
+					{
+						continue;
+					}
+					using (EImage image = new EImage()) {
+                        image.Url = line;
+                        image.Mode = PictureBoxSizeMode.Normal;
+                        await Task.Run(() => image.白框ing(EImage.Get图片目录() + "/" + id, false));
+                    } 
+				}
+
+			}
+        }
+        //foreach (Control control in pic.Controls)
+        //{
+        //    if (control is EImage eImage && eImage.Url.Length > 0)
+        //    {
+        //        await eImage.白框ing(EImage.Get图片目录(), false);
+
+        //    }
+        //}
+
+    }
+
+	private async Task<List<string>> queryAll(ETurn eTurn, string logPath) {
+        object zClient = Page.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic)
+			.GetValue(Page);
+        if (zClient == null)
+        {
+            return null;
+        }
+        FieldInfo commandField = zClient.GetType().GetField("Command");
+        commandField.SetValue(zClient, "spider.total");
+        MethodInfo posAsyncPara = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[1] { typeof(Para) }, null);
+        if (posAsyncPara == null)
+        {
+			return null;
+        }
+
+		List<string> list = new List<string>();
+        for (int p = 1; p <= eTurn.Page; p++)
+		{
+
+			Para para = new Para();
+			para.page = p;
+			para.pagesize = eTurn.PageSize;
+			object[] parameters = new object[1] { para };
+			object paraTask = posAsyncPara.Invoke(zClient, parameters);
+			Task task = paraTask as Task;
+			Type type = paraTask.GetType().GetGenericArguments()[0];
+			PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type).GetProperty("Result");
+			await task;
+			object value = paraProperty.GetValue(paraTask);
+			JsonObject jsonObject = JsonObject.Create((value.GetType().GetField("RS").GetValue(value) as RecordSet).ToJson());
+			File.WriteAllText(logPath + "page-" + p + ".json", jsonObject.ToString());
+            list.AddRange(jsonObject.GetArray("list/data").Select(item => item.GetString("id")).ToList());
+		}
+		return list;
+    }
+
+	private async Task saveAll(Detail.Sale sale, List<string> items) {
+        object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+        if (zClient == null)
+        {
+            MessageBox.Show("Collect ZClient is Null");
+            return;
+        }
+       
+        int num = -1;
+        MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+        {
+        typeof(string),
+        typeof(string)
+        }, null);
+
+        string logtime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss");
+        string logpath = Path.GetFullPath("log/" + logtime + "/");
+        if (!Directory.Exists(logpath))
+        {
+            Directory.CreateDirectory(logpath);
+        }
+
+        foreach (string id in items)
+        {
+            if (id.Length == 0)
+            {
+                continue;
+            }
+         
+            object[] parameters2 = new object[2] { "id", id };
+            object paraTask = posAsync.Invoke(zClient, parameters2);
+            Task task2 = paraTask as Task;
+            Type type2 = paraTask.GetType().GetGenericArguments()[0];
+            PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+            await task2;
+            object value2 = paraProperty.GetValue(paraTask);
+            string text = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet).ToJson();
+            File.WriteAllText(logpath + "text-" + id + ".json", text);
+			JsonObject jsonObject = JsonObject.Create(text);
+            JsonArray root = jsonObject.GetArray("root");
+            foreach (JsonObject node in root)
+            {
+                List<string> list = node.GetArray("sale_pic").Select(c=>c.ToString()).ToList();
+                foreach (string line in list)
+                {
+					if (line.Length <= 0)
+					{
+						continue;
+					}
+
+					using (EImage image = new EImage()) {
+                        image.Url = line;
+                        image.Mode = PictureBoxSizeMode.Normal;
+                        await Task.Run(() => image.Saving(EImage.Get图片目录() + "/" + id, false));
+                    } 
+					
+                }
+             
+            }
+        }
+
+    //    foreach (Control control in epic.Controls)
+    //    {
+    //        if (control is EImage eImage && eImage.Url.Length > 0)
+    //        {
+				//await eImage.Saving(EImage.Get图片目录(), false);
+    //        }
+    //    }
+    }
+
+	private bool judgeReact(Point location, int diff) {
+        Point point = _sys.Location;
+		return new Rectangle(point.X - diff, point.Y + 4, 20, 20).Contains(location);
+    }
+
+	private static string getRandomNum(string value) {
+		if (value.IsNullOrEmpty() ||  !value.Contains("-"))
+		{
+			return value;
+		}
+        string[] split = value.Split("-");
+        int min = int.Parse(split[0]);
+        int max = int.Parse(split[1]);
+        if (min > max)
+        {
+            int temp = min;
+            min = max;
+            max = temp;
+        }
+        int randomNumber = new Random().Next(min, max);
+        return randomNumber.ToString();
+    }
+
+	private void changePage(EGallery eGallery, ETurn eTurn, EButton button) {
+		if (eGallery == null)
+		{
+			return;
+		}
+        int currentNum = 0;
+        string currentName = eGallery.CurrentCell != null ? eGallery.CurrentCell.Name : Page.Name;
+        foreach (ICell cell in eGallery.Cells)
+        {
+            if (cell.Name == currentName)
+            {
+                break;
+            }
+            currentNum++;
+        }
+        currentNum++;
+		if (currentNum == eGallery.Cells.Count)
+		{
+			int p = eTurn.Page + 1;
+			eTurn.Page = p > eTurn.TotalPages ? 1 : p;
+			eTurn.MyChange();
+		}
+		else
+		{
+			GC.Collect();
+			int n = currentNum > eGallery.Cells.Count ? 0 : currentNum;
+			eGallery.CurrentCell = eGallery.Cells[n];
+			Thread.Sleep(100);
+
+			if (button != null)
+			{
+				button.MyClick();
+			}
+
+		}
+    }
+
+    protected override void OnMouseClick(MouseEventArgs e)
 	{
 		try
 		{
-			Point location = e.Location;
+            Point location = e.Location;
 			if (_rx.Contains(location))
 			{
 				Remove(_hover);
@@ -830,76 +1079,114 @@ public class EPanelEx : EPanelBase
 				return;
 			}
 
-            if ((base.Parent.Name == "采集列表" || base.Parent.Name == "产品列表")
+
+                if ((base.Parent.Name == "采集列表" || base.Parent.Name == "产品列表")
             && e.Button == MouseButtons.Left)
             {
-                Point point = _sys.Location;
-
-                ETurn eTurn = null;
-                EGallery eGallery = null;
-                foreach (EControl con in base.Parent.Controls[0].Controls)
-                {
-                    if (con is EGallery eg && eg.Name.Equals("grid"))
-                    {
-                        eGallery = eg;
-                    }
-                    if (con is ETurn a && a.Name.Equals("PTurn"))
-                    {
-                        eTurn = a;
-                    }
-                }
-
 
                 //库存
                 try
                 {
-                    Rectangle d = new Rectangle(point.X - 100, point.Y + 4, 30, 30);
+                    base.Invoke(async () =>
+                    {
+                        ETurn eTurn = null;
+                        EGallery eGallery = null;
+                        foreach (EControl con in base.Parent.Controls[0].Controls)
+                        {
+                            if (con is EGallery eg && eg.Name.Equals("grid"))
+                            {
+                                eGallery = eg;
+                            }
+                            if (con is ETurn a && a.Name.Equals("PTurn"))
+                            {
+                                eTurn = a;
+                            }
+                        }
 
-					if (d.Contains(location))
-					{
+						bool saveEnable = judgeReact(location, 180);
+						bool whiteEnable = judgeReact(location, 140);
+						bool stockEnable = judgeReact(location, 100);
 
-						EStockEdit table = null;
-						EButton button = null;
-						EText all = null;
-                        foreach (EControl con in base.Controls[0].Controls[0].Controls)
+
+                        //Server.Instance.Load(this).Start();
+                        //MessageBox.Show("服务已启动 port:[32025]");
+                        EStockEdit table = null;
+                        EButton button = null;
+                        EText all = null;
+                        EPic pic = null;
+                        if (saveEnable || whiteEnable || stockEnable)
 						{
-							if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
-							{
-								table = eg;
-							}
-							if (con is EButton btn1 && btn1.Name.Equals("btnSubmit1"))
-							{
-								button = btn1;
-							}
-							if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
-							{
 
-								foreach (EControl con1 in sl.Controls)
-								{
-
-									if (con1 is ETextUnit tu && tu.Name.Equals("txtNum"))
-									{
-
-										foreach (EControl con2 in con1.Controls)
-										{
-
-											if (con2 is EText tu2)
-											{
-												all = tu2;
-												break;
-											}
-										}
-										break;
-									}
-
+                          
+                            foreach (EControl con in base.Controls[0].Controls[0].Controls)
+                            {
+                                if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
+                                {
+                                    table = eg;
+                                }
+                                if (con is EButton btn1 && btn1.Name.Equals("btnSubmit1"))
+                                {
+                                    button = btn1;
+                                }
+                                if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
+                                {
+                                    repeat.Checked = true;
+                                }
+								if (con is EPic epic && epic.Name.Equals("epic")) { 
+									pic = epic;
 								}
-							}
+                                if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
+                                {
+
+                                    foreach (EControl con1 in sl.Controls)
+                                    {
+
+                                        if (con1 is ETextUnit tu && tu.Name.Equals("txtNum"))
+                                        {
+
+                                            foreach (EControl con2 in con1.Controls)
+                                            {
+
+                                                if (con2 is EText tu2)
+                                                {
+                                                    all = tu2;
+                                                    break;
+                                                }
+                                            }
+                                            break;
+                                        }
+
+                                    }
+                                }
+                            }
+
 						}
 
-					
-						if (table != null)
+                 
+						if (saveEnable && pic != null)
+						{
+							List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
+                            int p = eTurn.Page + 1;
+                            eTurn.Page = p > eTurn.TotalPages ? 1 : p;
+
+                            await saveAll((Detail.Sale)Page, ids);
+                            eTurn.MyChange();
+                          
+                        }
+
+                        if (whiteEnable && pic != null)
+                        {
+                            List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
+                            int p = eTurn.Page + 1;
+                            eTurn.Page = p > eTurn.TotalPages ? 1 : p;
+                            await whiteAll((Detail.Sale)Page, ids);
+                            eTurn.MyChange();
+                        }
+
+						if (stockEnable && table != null)
 						{
 
+		
 							JsonArray config = JsonArray.Create(File.ReadAllText("stock.json"));
 							bool modify = true;
 							foreach (ETRow row in table.Rows)
@@ -910,110 +1197,38 @@ public class EPanelEx : EPanelBase
 									{
 										if (cell.Name == item.GetString("key"))
 										{
-											string numV = item.GetString("value");
-											if (numV.Contains("-"))
-											{
-												string[] split = numV.Split("-");
-												int min = int.Parse(split[0]);
-												int max = int.Parse(split[1]);
-												if (min > max)
-												{
-													int temp = min;
-													min = max;
-													max = temp;
-												}
-												int randomNumber = new Random().Next(min, max);
-												numV = randomNumber.ToString();
-											}
-
-											cell.Text = numV;
+											cell.Text = getRandomNum(item.GetString("value"));
 											modify = false;
 										}
 									}
-
-
 								}
-
-
-
 							}
 
 							if (modify && all != null)
 							{
-
 								foreach (JsonElement item in config)
 								{
 									if (!item.GetString("key").Equals("num"))
 									{
 										continue;
 									}
-									string numV = item.GetString("value");
-									if (numV.Contains("-"))
-									{
-										string[] split = numV.Split("-");
-										int min = int.Parse(split[0]);
-										int max = int.Parse(split[1]);
-										if (min > max)
-										{
-											int temp = min;
-											min = max;
-											max = temp;
-										}
-										int randomNumber = new Random().Next(min, max);
-										numV = randomNumber.ToString();
-									}
-									all.Text = numV;
+									all.Text = getRandomNum(item.GetString("value"));
 								}
 							}
-						}
 
-						int currentNum = 0;
-						string currentName = Page.Name;
-					    foreach (ICell cell in eGallery.Cells)
-                        {
-                            if (cell.Name == currentName)
+                            changePage(eGallery, eTurn, button);
+
+                            if (base.Pages.Count > 2)
                             {
-								break;
+                                int idx = base.Pages.Count - 1;
+                                EControl eControl = this[idx];
+                                if (eControl != null)
+                                {
+                                    Remove(eControl);
+                                }
                             }
-                            currentNum++;
                         }
-                        currentNum++;
-						if (currentNum == eGallery.Cells.Count)
-						{
-							int p = eTurn.Page + 1;
-							if (p > eTurn.TotalPages)
-							{
-								eTurn.Page = 1;
-							}
-							else
-							{
-								eTurn.Page = p;
-							}
-							eTurn.MyChange();
-							Thread.Sleep(50);
-							button.MyClick();
-						} else if(currentNum > eGallery.Cells.Count) {
-                            eGallery.CurrentCell = eGallery.Cells[0];
-                            this.CreatePage(eGallery, eGallery.Cells[0].Name);
-                        } else {
-							string str = eGallery.Cells[currentNum].Name;
-							List<string> toRemove = new List<string>();
-							foreach (EControl eControl in this.Pages)
-							{
-								if (eControl.Name != str && eControl.Name != Page.Name)
-								{
-									toRemove.Add(eControl.Name);
-
-								}
-							}
-							Thread.Sleep(50);
-							this.CreatePage(eGallery, str);
-							eGallery.CurrentCell = eGallery.Cells[currentNum];
-							Thread.Sleep(50);
-							toRemove.ForEach(this.Remove);
-							button.MyClick();
-						}
-                    }
+					});
 				}
                 catch (Exception ex)
                 {
@@ -1058,38 +1273,36 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-    private int coursl = 0;
-    private int processCourse(EGallery eGallery, ETurn eTurn)
-    {
-        //处理转场
-        if (eTurn != null)
-        {
-            int page = coursl / eTurn.PageSize + 1;
-            if (page != eTurn.Page)
-            {
-                eTurn.Page = page;
-                eTurn.MyChange();
-                Thread.Sleep(200);
-				GC.Collect();
-                File.AppendAllLinesAsync("stock_tmp.txt", eGallery.Cells.Select(c => c.Name).Sort());
 
-            }
-        }
-        if (coursl == 0)
-        {
-            File.AppendAllLinesAsync("stock_tmp.txt", eGallery.Cells.Select(c => c.Name).Sort());
-        }
-        int currentNum = coursl % eTurn.PageSize;
-        if (coursl < eGallery.MaxCount)
-        {
-            coursl++;
-        }
-        else
-        {
-            coursl = 0;
-        }
-        return currentNum;
+	private async Task MyLoad(string id) {
+
+		Detail.Sale sale = (Detail.Sale)Page;
+       
+        //object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+        object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+
+		if (zClient == null)
+		{
+			MessageBox.Show("Collect ZClient is Null");
+			return;
+		}
+		//FieldInfo commandField = zClient.GetType().GetField("Command");
+
+		MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2] { typeof(string), typeof(string) }, null);
+		object paraTask = posAsync.Invoke(zClient, new object[2] { "id", id });
+
+		Task task2 = paraTask as Task;
+		Type type2 = paraTask.GetType().GetGenericArguments()[0];
+		await task2;
+		object value2 = typeof(Task<>).MakeGenericType(type2).GetProperty("Result").GetValue(paraTask);
+        //sale.Reset();
+        //Thread.Sleep(100);
+        sale.Read((value2.GetType().GetField("RS").GetValue(value2) as RecordSet));
+
+		Page.Name = id;
+		
     }
+
     protected override void OnMouseDoubleClick(MouseEventArgs e)
 	{
 		if (IsForm && e.Location.Y < HeadHeight)
@@ -1124,7 +1337,8 @@ public class EPanelEx : EPanelBase
 
         if (base.Parent.Name == "采集列表" || base.Parent.Name == "产品列表")
         {
-            //EPaint.DrawText(graphics, "一键", current.ColorText, new Point(point.X -150, point.Y + 2));
+            EPaint.DrawText(graphics, "保存", current.ColorText, new Point(point.X -180, point.Y + 2));
+            EPaint.DrawText(graphics, "白框", current.ColorText, new Point(point.X - 140, point.Y + 2));
             EPaint.DrawText(graphics, "库存", current.ColorText, new Point(point.X - 100, point.Y + 2));
         }
         int headHeight = HeadHeight;

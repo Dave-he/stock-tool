@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
+using System.IO.Compression;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -6,8 +9,8 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Markup;
+using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Configuration;
-
 namespace stock_tool;
 
 /// <summary>
@@ -16,7 +19,8 @@ namespace stock_tool;
 public partial class MainWindow : Window
 {
     private IConfiguration _configuration;
-    private Log log;
+    private Random random = new Random();
+    private string assemblyName = Assembly.GetExecutingAssembly().GetName().Name;
 
     private static string CONFIG_FILE = "stock_config.json";
 
@@ -37,17 +41,23 @@ public partial class MainWindow : Window
 
     private DateTime lastClickTime = DateTime.MinValue;
     private const int clickInterval = 2000; // 点击间隔时间，单位为毫秒
+
+    private bool debug = false;
+
     public MainWindow()
     {
         InitializeComponent();
-
+        SetRandomBackgroundImage();
         // 加载配置文件
         LoadConfiguration();
+        this.SizeChanged += MainWindow_SizeChanged;
 
         // 获取日志文件路径
         string logFilePath = _configuration["LogFilePath"];
-        log = new Log(this, LogTextBox, logFilePath);
-        log.info($"程序启动.... \n读取配置: {File.ReadAllText(CONFIG_FILE)}");
+
+        Logger.Initialize(RichLogBox, $"{logFilePath}/{DateTime.Today:yyyy-MM-dd}.log");
+
+        Logger.Info($"程序启动.... \n读取配置: {File.ReadAllText(CONFIG_FILE)}");
         // 设置全局键盘钩子
         _hookID = SetHook(_proc);
         // 窗口关闭时卸载钩子
@@ -105,8 +115,6 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-
-
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape || e.Key == Key.Space)
@@ -128,29 +136,107 @@ public partial class MainWindow : Window
         catch (Exception e)
         {
 
-            log.info($"读取配置文件失败: {e.Message}");
+            Logger.Info($"读取配置文件失败: {e.Message}");
         }
 
+    }
+
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // 当前窗口的实际可用宽度（排除边框）
+        double availableWidth = this.ActualWidth - SystemParameters.WindowResizeBorderThickness.Left - SystemParameters.WindowResizeBorderThickness.Right;
+
+        // 计算目标高度
+        double targetHeight = availableWidth / 1;
+
+        // 调整窗口高度（保持宽高比）
+        this.Height = targetHeight + SystemParameters.WindowResizeBorderThickness.Top + SystemParameters.WindowResizeBorderThickness.Bottom;
+    }
+
+    private void SetRandomBackgroundImage()
+    {
+        int randomNumber = random.Next(1, 10);
+        string imagePath = $"pack://application:,,,/{assemblyName};component/Images/bg{randomNumber}.png";
+
+        try
+        {
+            BitmapImage bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+
+            BackgroundImageBrush.ImageSource = bitmap;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"加载图片失败：{ex.Message}");
+        }
+    }
+
+    private void ZipClick(object sender, RoutedEventArgs e)
+    {
+        // 获取用户输入的源文件夹路径
+        string sourceFolder = _configuration["ImagePath"];
+        string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
+       
+
+        try
+        {
+            if (Directory.Exists(sourceFolder))
+            {
+                // 获取源文件夹的上一级目录
+                DirectoryInfo parentDir = Directory.GetParent(sourceFolder);
+                if (parentDir != null)
+                {
+                    string parentPath = parentDir.FullName;
+                    string zipFileName = Path.Combine(parentPath, $"image_{timestamp}.zip");
+
+                    Logger.Info($"开始压缩..{sourceFolder}");
+                    ZipFile.CreateFromDirectory(sourceFolder, zipFileName);
+                    Logger.Info($"压缩成功: {zipFileName}");
+                }
+                Directory.Delete(sourceFolder, true);
+                Logger.Info($"删除成功: {sourceFolder}");
+            }
+            else
+            {
+                Logger.Error($"清理错误: 源文件夹 {sourceFolder} 不存在");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"清理失败: {ex.Message}");
+        }
     }
 
     private int ConvertFromConfig(string config, bool isWidth) {
       
         double width = SystemParameters.PrimaryScreenWidth;   // 逻辑宽度（像素）
         double height = SystemParameters.PrimaryScreenHeight; // 逻辑高度（像素）
-        return (int)(isWidth ? int.Parse(_configuration[config]) * 1920 / width
-            : int.Parse(_configuration[config]) * 1080 / height);
+        return (int)(isWidth ? int.Parse(_configuration[config]) * 1280 / width
+            : int.Parse(_configuration[config]) * 720 / height);
+    }
+    private void SaveClick(object sender, RoutedEventArgs e)
+    {
+
     }
 
-    private void StartAll_Click(object sender, RoutedEventArgs e)
+    private void WhiteClick(object sender, RoutedEventArgs e)
+    {
+
+    }
+
+    private void StockClick(object sender, RoutedEventArgs e)
     {
         DateTime now = DateTime.Now;
         if ((now - lastClickTime).TotalMilliseconds < clickInterval)
         {
-            log.info($"请{clickInterval / 1000}秒后重试");
+            Logger.Info($"请{clickInterval / 1000}秒后重试");
             return;
         }
 
-        log.info("开始处理所有....");
+        Logger.Info("开始处理所有....");
         // 获取配置项
         string targetWindowTitle = _configuration["TargetWindowTitle"];
         string targetElementTitle = _configuration["TargetElementTitle"];
@@ -162,11 +248,11 @@ public partial class MainWindow : Window
 
         if (mainWindow == null)
         {
-            log.info($"找不到【{targetWindowTitle}】，请运行程序");
+            Logger.Info($"找不到【{targetWindowTitle}】，请运行程序");
             return;
         }
-        AutomationSearchHelper.TryActivateWindow(mainWindow, log);
-
+        AutomationSearchHelper.TryActivateWindow(mainWindow);
+        max(mainWindow);
         // 查找右边pannel
         AutomationElement targetWindow = mainWindow.FindFirst(TreeScope.Descendants,
             new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
@@ -174,40 +260,30 @@ public partial class MainWindow : Window
       
         if (targetWindow == null)
         {
-            log.info($"找不到 【{targetElementTitle}】,请打开某商品");
+            Logger.Info($"找不到 【{targetElementTitle}】,请打开某商品");
             return;
         }
-
-        //while (targetWindow != null) {
-        //    ProcessSingle(mainWindow, targetWindow);
-        //    AutomationSearchHelper.TryActivateWindow(mainWindow, log);
-        //    Thread.Sleep(1000);
-        //    targetWindow = AutomationSearchHelper.FindFirstElement(mainWindow,
-        //        new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
-        //}
-
         int maxCount = GetMaxCount(mainWindow);
         ProcessSingle(mainWindow, targetWindow, maxCount);
        
     }
 
     private void ProcessSingle(AutomationElement mainWindow, AutomationElement targetWindow, int time = 0) {
-        log.info("开始执行....");
+        Logger.Info("开始执行....");
         
         // 假设要点击窗口内的坐标 (100, 200)，可根据实际情况修改
 
         //删除临时文件
         string resultPath =_configuration["ResultFilePath"];
-        log.EnsureLogDirectoryExists(resultPath);
-    
-         string resultFile = resultPath+ DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss")+".txt";
-         File.Delete(_configuration["CompareFilePath"]);
+        string resultFile = resultPath+ DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss")+".txt";
+        File.Delete(_configuration["CompareFilePath"]);
 
-        int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
+        Rect rectangle = targetWindow.Current.BoundingRectangle;
+        int x = (int)rectangle.Right - ConvertFromConfig("RefreshRight", true);
         int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
 
         MouseSimulator.Click(x, y);
-        log.info($"点击刷新图标 x:{x} y:{y}");
+        Logger.Info($"点击刷新图标 x:{x} y:{y}");
         Thread.Sleep(500);
         //PrintElementInfo(mainWindow);
         AutomationElement productId = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 10, 500);
@@ -215,17 +291,18 @@ public partial class MainWindow : Window
         //AutomationElement submit = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["Submit"]), 10, 500);
         if (subject == null)
         {
-            log.info($"刷新失败! 请检查配置项【Refresh】");
+            Logger.Info($"刷新失败! 请检查配置项【Refresh】");
             return;
         }
         else
         {
-            log.info($"刷新成功---ID: {productId.Current.Name}");
+            Logger.Info($"刷新成功---ID: {productId.Current.Name}");
         }
 
+     
         Task.Run(() =>
         {
-
+            string last_id = "";
             List<string> processed = new List<string>();
             int errorTime = 0;
             for (int i = 0; i <= time; i++)
@@ -243,24 +320,29 @@ public partial class MainWindow : Window
                     if (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$")) { 
                         throw new Exception("ID错误");
                     }
-
+          
                     int stock = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("StockRight", true);
 
                     MouseSimulator.Click(stock, y);
-                    log.info($"点击库存图标 x:{x} y:{y}");
+                    Logger.Info($"{id.Current.Name},第{i}个,点击库存图标 x:{x} y:{y}");
+                    last_id = id.Current.Name;
+                   
+                    if (debug)
+                    {
+                        Thread.Sleep(200);
+                        StockInput.PressY();
+                        Thread.Sleep(100);
+                        StockInput.PressEnter();
+                        Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
+                    }
+                    else {
+                        StockInput.PressN();
+                        Thread.Sleep(100);
 
-                    //ScrollToControl scroll = new ScrollToControl();
-                    // 在目标窗口中查找 AutomationId 为 vtbl 的表格控件
+                    }
 
-                    //scroll.ScrollWindowUntilTargetVisible(targetWindow, submit);
-                    //MouseSimulator.ClickElementCenter(submit);
-                    //log.info($"点击提交图标 {submit.Current.BoundingRectangle}");
-                    Thread.Sleep(200);
-                    StockInput.PressY();
-                    Thread.Sleep(100);
-                    StockInput.PressEnter();
-                    Thread.Sleep(int.Parse(_configuration["WaitMillSeconds"]));
-                    processed.Add(id.Current.Name);
+
+                        processed.Add(id.Current.Name);
 
                     //AutomationElement element = AutomationSearchHelper.FindFirstElementByName(mainWindow, "错误");
                     //if (element != null)
@@ -281,14 +363,14 @@ public partial class MainWindow : Window
                 {
                     if (errorTime < 10)
                     {
-                        log.info($"发生错误, 尝试刷新x:{x} y:{y}: {ex.Message}");
+                        Logger.Info($"发生错误, 尝试刷新x:{x} y:{y}: {ex.Message}");
                         errorTime++;
                         i--;
                     }
                     else
                     {
                         errorTime = 0;
-                        log.info("发生错误, 已经刷新了10次，跳过该商品");
+                        Logger.Info("发生错误, 已经刷新了10次，跳过该商品");
                     }
                    
                     MouseSimulator.Click(x, y);
@@ -297,6 +379,7 @@ public partial class MainWindow : Window
                     Thread.Sleep(500);
                 }
 
+               
             }
 
             IEnumerable<string> needProcess = File.ReadAllLines(_configuration["CompareFilePath"]).Distinct();
@@ -316,21 +399,22 @@ public partial class MainWindow : Window
             if (notProcess.Count > 0) {
                 File.WriteAllLines(resultFile, notProcess);
                 int success = time == 0 ? 1 : time - notProcess.Count;
-                log.info($"所有{time},成功:{success} 未处理:{notProcess.Count}, 请查看{resultFile}");
+                Logger.Info($"所有{time},成功:{success} 未处理:{notProcess.Count}, 请查看{resultFile}");
             } else {
 
-                log.info($"全部处理成功 {time}");
+                Logger.Info($"全部处理成功 {time}");
             }
 
                 //int x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("RefreshRight", true);
                 int close_x = (int)targetWindow.Current.BoundingRectangle.Right - ConvertFromConfig("CloseDiff", true);
             //int y = (int)targetWindow.Current.BoundingRectangle.Top + ConvertFromConfig("RefreshTop", false);
             MouseSimulator.Click(close_x, y);
-            log.info($"点击关闭图标 x:{x} y:{y}");
+            Logger.Info($"点击关闭图标 x:{x} y:{y}");
         });
     
  
     }
+
 
     private int GetMaxCount(AutomationElement mainWindow) {
 
@@ -345,15 +429,27 @@ public partial class MainWindow : Window
         return 0;
     }
 
+    private void SaveTest(object sender, RoutedEventArgs e)
+    {
 
-    // 开始按钮点击事件处理方法
-    private void StartButton_Click(object sender, RoutedEventArgs e)
+    }
+
+    private void WhiteTest(object sender, RoutedEventArgs e)
+    {
+
+    }
+
+    private void PageTest(object sender, RoutedEventArgs e)
+    {
+
+    }
+    private void StockTest(object sender, RoutedEventArgs e)
     {
 
         DateTime now = DateTime.Now;
         if ((now - lastClickTime).TotalMilliseconds < clickInterval)
         {
-            log.info($"请{clickInterval / 1000}秒后重试");
+            Logger.Info($"请{clickInterval / 1000}秒后重试");
             return;
         }
 
@@ -370,17 +466,18 @@ public partial class MainWindow : Window
 
         if (mainWindow == null)
         {
-            log.info($"找不到【{targetWindowTitle}】，请运行程序");
+            Logger.Info($"找不到【{targetWindowTitle}】，请运行程序");
             return;
         }
-        AutomationSearchHelper.TryActivateWindow(mainWindow, log);
 
+        AutomationSearchHelper.TryActivateWindow(mainWindow);
+        max(mainWindow);
         // 查找右边pannel
         AutomationElement targetWindow = mainWindow.FindFirst(TreeScope.Descendants,
             new PropertyCondition(AutomationElement.NameProperty, targetElementTitle));
         if (targetWindow == null)
         {
-            log.info($"找不到 【{targetElementTitle}】,请打开某商品并点击【一键】");
+            Logger.Info($"找不到 【{targetElementTitle}】,请打开某商品并点击【库存】");
             return;
         }
         ProcessSingle(mainWindow, targetWindow);
@@ -424,11 +521,11 @@ public partial class MainWindow : Window
             {
                 // 执行最大化操作
                 windowPattern.SetWindowVisualState(WindowVisualState.Maximized);
-               log.info("窗口已最大化。");
+               Logger.Info("窗口已最大化。");
             }
             else
             {
-                log.info("窗口不支持最大化操作。");
+                Logger.Info("窗口不支持最大化操作。");
             }
         }
     }
@@ -443,7 +540,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            log.info($"点击失败: {ex.Message}");
+            Logger.Info($"点击失败: {ex.Message}");
         }
         return false;
     }
@@ -470,7 +567,7 @@ public partial class MainWindow : Window
                     throw;
                 }
 
-               log.info($"第 {retryCount} 次重试，原因: {ex.Message}，等待 {retryDelay} 毫秒后再次尝试...");
+               Logger.Info($"重试【{retryCount}】，原因: {ex.Message}，等待 {retryDelay} 毫秒...");
                 Thread.Sleep(retryDelay);
             }
         }
@@ -487,9 +584,9 @@ public partial class MainWindow : Window
         foreach (AutomationElement element in elements)
         {
             AutomationSearchHelper.FindTableInPanel(element);
-            log.file("----------------------");
-            log.file($"元素名称: {element.Current.Name} 类 {element.Current.ClassName} id {element.Current.AutomationId}");
-            log.file($"元素控制类型: {element.Current.ControlType.ProgrammaticName} 是否启用: {element.Current.IsEnabled} 是否可见: {element.Current.IsOffscreen}");
+            Logger.Info("----------------------");
+            Logger.Info($"元素名称: {element.Current.Name} 类 {element.Current.ClassName} id {element.Current.AutomationId}");
+            Logger.Info($"元素控制类型: {element.Current.ControlType.ProgrammaticName} 是否启用: {element.Current.IsEnabled} 是否可见: {element.Current.IsOffscreen}");
 
         }
     }

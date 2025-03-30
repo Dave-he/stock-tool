@@ -24,11 +24,35 @@
 
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Images\bg1.png" />
+    <None Remove="Images\bg2.png" />
+    <None Remove="Images\bg3.png" />
+    <None Remove="Images\bg4.png" />
+    <None Remove="Images\bg5.png" />
+    <None Remove="Images\bg6.png" />
+    <None Remove="Images\bg7.png" />
+    <None Remove="Images\bg8.png" />
+    <None Remove="Images\bg9.png" />
+  </ItemGroup>
   
   
   <ItemGroup>
 
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Images\*.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Update="MainWindow.xaml.cs">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Compile>
   </ItemGroup>
  
 </Project>

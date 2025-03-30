@@ -5,11 +5,80 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:stock_tool"
         mc:Ignorable="d"
-        Title="MainWindow" Height="500" Width="400"
+        Title="MainWindow" Height="500" Width="500"
         KeyDown="Window_KeyDown">
+    <Window.Background>
+        <ImageBrush x:Name="BackgroundImageBrush" Stretch="UniformToFill"
+            AlignmentX="Center" AlignmentY="Center"/>
+    </Window.Background>
     <Grid>
-        <Button x:Name="StartButton" Content="单个开始" HorizontalAlignment="Left" Margin="80,10,0,0" VerticalAlignment="Top" Width="75" Click="StartButton_Click"/>
-        <Button x:Name="StartAll" Content="开始所有" HorizontalAlignment="Right" Margin="0,10,80,0" VerticalAlignment="Top" Width="75" Click="StartAll_Click"/>
-        <TextBox x:Name="LogTextBox" Margin="10,40,10,10" TextWrapping="Wrap" IsReadOnly="True"/>
+       
+        <!-- 用于布局分割线和中间文字的Grid -->
+        <Grid HorizontalAlignment="Stretch" Margin="20,10,20,0" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Margin="10,0" Text="正常流程" VerticalAlignment="Center"/>
+            <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 横向排列的4个按钮 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
+            <Button x:Name="SaveBtn" Content="全部保存"  Background="LightPink"  Width="75" Click="SaveClick"/>
+            <Label Content="> 人工P图 >" ></Label>
+            <Button x:Name="StockBtn" Content="全部库存"  Background="LightBlue" Width="75" Click="StockClick"/>
+            <Label Content=">"></Label>
+            <Button x:Name="ZipBtn" Content="清理image" Background="LightYellow" Width="75" Click="ZipClick"/>
+            <Label Content=">"></Label>
+            <Button x:Name="WhiteBtn" Content="全部白框" Background="LightGreen" Width="75" Click="WhiteClick"/>
+        </StackPanel>
+
+ 
+        <!-- 用于布局分割线和中间文字的Grid -->
+        <Grid HorizontalAlignment="Stretch" Margin="20,60,20,0" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Margin="10,0" Text="测试单个" VerticalAlignment="Center"/>
+            <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 横向排列的4个按钮 -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top">
+            <Button x:Name="SaveTestBtn" Content="保存测试"  Width="75"  Click="SaveTest"/>
+            <Label Content=">"></Label>
+            <Button x:Name="StockTestBtn" Content="单个库存" Width="75" Click="StockTest"/>
+            <Label Content=">"></Label>
+            <Button x:Name="PageTestBtn" Content="切页测试" Width="75" Click="PageTest"/>
+            <Label Content=">"></Label>
+            <Button x:Name="WhiteTestBtn" Content="白框测试" Width="75" Click="WhiteTest"/>
+        </StackPanel>
+        <!-- 用于布局分割线和中间文字的Grid -->
+        <Grid HorizontalAlignment="Stretch" Margin="20,110,20,0" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Margin="10,0" Text="日志" VerticalAlignment="Center"/>
+            <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        </Grid>
+        <RichTextBox x:Name="RichLogBox" Margin="10,130,10,20"  Background="Transparent"
+                      IsReadOnly="True"  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" >
+            <FlowDocument/>
+        </RichTextBox>
+       
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,0,20,0" VerticalAlignment="Bottom">
+            <Label Content="V1.0.0  hyx"></Label>
+        </StackPanel>
     </Grid>
+    
+    
 </Window>

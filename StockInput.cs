@@ -39,6 +39,12 @@ public class StockInput
         PressKey(CharToVirtualKey('y'));
     }
 
+
+    public static void PressN()
+    {
+        PressKey(0x4E);
+    }
+
     public static void PressEnter() {
         PressKey(0x0D);
     }
