@@ -9,12 +9,13 @@
   "Group": "lblGroup",
   "RefreshRight": "100", //刷新图标偏移量
   "RefreshTop": "25",
-  "StockRight": "180",
-  "SaveRight": "290",
-  "WhiteRight": "230",
+  "StockRight": "115",
+  "SaveRight": "190",
+  "WhiteRight": "160",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "30", //关闭按钮和产品编号最右边距离
   "WaitMillSeconds": "1000",
   "ResultFilePath": "result/",
-  "CompareFilePath": "stock_tmp.txt"
+  "CompareFilePath": "stock_tmp.txt",
+  "WhiteSize": "1600"
 }
