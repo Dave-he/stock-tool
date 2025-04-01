@@ -874,15 +874,16 @@ public class EPanelEx : EPanelBase
 					{
 						continue;
 					}
-					using (EImage image = new EImage()) {
-                        image.Url = line;
-                        image.Mode = PictureBoxSizeMode.Normal;
-                        await Task.Run(() => image.白框ing(EImage.Get图片目录() + "/" + id, false));
-                    } 
+					EImage image = new EImage();
+                    image.Url = line;
+                    image.Mode = PictureBoxSizeMode.Zoom;
+                    await image.MyWhite(id);
+                    
 				}
 
 			}
         }
+        MessageBox.Show($"本页已处理{items.Count},请点击下一页进行保存.");
         //foreach (Control control in pic.Controls)
         //{
         //    if (control is EImage eImage && eImage.Url.Length > 0)
@@ -931,66 +932,70 @@ public class EPanelEx : EPanelBase
     }
 
 	private async Task saveAll(Detail.Sale sale, List<string> items) {
-        object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
-        if (zClient == null)
-        {
-            MessageBox.Show("Collect ZClient is Null");
-            return;
-        }
-       
-        int num = -1;
-        MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
-        {
-        typeof(string),
-        typeof(string)
-        }, null);
+		object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+		if (zClient == null)
+		{
+			MessageBox.Show("Collect ZClient is Null");
+			return;
+		}
 
-        string logtime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss");
-        string logpath = Path.GetFullPath("log/" + logtime + "/");
-        if (!Directory.Exists(logpath))
-        {
-            Directory.CreateDirectory(logpath);
-        }
+		int num = -1;
+		MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+		{
+		typeof(string),
+		typeof(string)
+		}, null);
 
-        foreach (string id in items)
-        {
-            if (id.Length == 0)
-            {
-                continue;
-            }
-         
-            object[] parameters2 = new object[2] { "id", id };
-            object paraTask = posAsync.Invoke(zClient, parameters2);
-            Task task2 = paraTask as Task;
-            Type type2 = paraTask.GetType().GetGenericArguments()[0];
-            PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
-            await task2;
-            object value2 = paraProperty.GetValue(paraTask);
-            string text = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet).ToJson();
-            File.WriteAllText(logpath + "text-" + id + ".json", text);
+		string logtime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss");
+		string logpath = Path.GetFullPath("log/" + logtime + "/");
+		if (!Directory.Exists(logpath))
+		{
+			Directory.CreateDirectory(logpath);
+		}
+
+	 
+		foreach (string id in items)
+		{
+			if (id.Length == 0)
+			{
+				continue;
+			}
+
+			object[] parameters2 = new object[2] { "id", id };
+			object paraTask = posAsync.Invoke(zClient, parameters2);
+			Task task2 = paraTask as Task;
+			Type type2 = paraTask.GetType().GetGenericArguments()[0];
+			PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+			await task2;
+			object value2 = paraProperty.GetValue(paraTask);
+			string text = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet).ToJson();
+			File.WriteAllText(logpath + "text-" + id + ".json", text);
 			JsonObject jsonObject = JsonObject.Create(text);
-            JsonArray root = jsonObject.GetArray("root");
-            foreach (JsonObject node in root)
-            {
-                List<string> list = node.GetArray("sale_pic").Select(c=>c.ToString()).ToList();
-                foreach (string line in list)
-                {
+
+			JsonArray root =
+			//JsonObject.Create(File.ReadAllText("C:\\ZYing\\log\\2025-03-30 14-02-47\\text-383831467.json"))
+			// .GetArray("root");
+			jsonObject.GetArray("root");
+
+			foreach (JsonObject node in root)
+			{
+				List<string> list = node.GetArray("sale_pic").Select(c => c.ToString()).ToList();
+				foreach (string line in list)
+				{
 					if (line.Length <= 0)
 					{
 						continue;
 					}
 
-					using (EImage image = new EImage()) {
-                        image.Url = line;
-                        image.Mode = PictureBoxSizeMode.Normal;
-                        await Task.Run(() => image.Saving(EImage.Get图片目录() + "/" + id, false));
-                    } 
-					
-                }
-             
-            }
-        }
+					EImage image = new EImage();
+					image.Url = line;
+					image.Mode = PictureBoxSizeMode.Zoom;
+					await image.MySave(id);
+				}
 
+			}
+        }
+        MessageBox.Show($"本页已处理{items.Count},请点击下一页进行保存.");
     //    foreach (Control control in epic.Controls)
     //    {
     //        if (control is EImage eImage && eImage.Url.Length > 0)
@@ -999,6 +1004,7 @@ public class EPanelEx : EPanelBase
     //        }
     //    }
     }
+
 
 	private bool judgeReact(Point location, int diff) {
         Point point = _sys.Location;
@@ -1166,26 +1172,33 @@ public class EPanelEx : EPanelBase
 						if (saveEnable && pic != null)
 						{
 							List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
-                            int p = eTurn.Page + 1;
-                            eTurn.Page = p > eTurn.TotalPages ? 1 : p;
-
+                            //int p = eTurn.Page + 1;
+                            //eTurn.Page = p > eTurn.TotalPages ? 1 : p;
+                            //eTurn.MyChange();
                             await saveAll((Detail.Sale)Page, ids);
-                            eTurn.MyChange();
+                           
                           
                         }
 
                         if (whiteEnable && pic != null)
                         {
                             List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
-                            int p = eTurn.Page + 1;
-                            eTurn.Page = p > eTurn.TotalPages ? 1 : p;
+                            //int p = eTurn.Page + 1;
+                            //eTurn.Page = p > eTurn.TotalPages ? 1 : p;
+                            //eTurn.MyChange();
                             await whiteAll((Detail.Sale)Page, ids);
-                            eTurn.MyChange();
+                         
                         }
 
 						if (stockEnable && table != null)
 						{
-
+							foreach (EControl con in pic.Controls)
+							{
+								if (con is EImage eImage && eImage.Url.Length > 0)
+								{
+									eImage.MyReplace(pic.Prefix);
+								}
+							}
 		
 							JsonArray config = JsonArray.Create(File.ReadAllText("stock.json"));
 							bool modify = true;

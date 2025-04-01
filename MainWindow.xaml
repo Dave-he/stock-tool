@@ -27,8 +27,8 @@
 
         <!-- 横向排列的4个按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
-            <!--<" Button x:Name="SaveBtn" Content="全部保存"  Background="LightPink"  Width="75" Click="SaveClick/>-->
-            <Label Content="（按页）保存 > 人工P图 >" Opacity="0.75"  Background="White"></Label>
+            <Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="75" Click="SaveClick"/>
+            <Label Content="> 人工P图 >" Opacity="0.75"  Background="White"></Label>
             <Button x:Name="WhiteBtn" Content="本地白框" Background="LightGreen" Width="75" Click="WhiteClick"/>
             <Label Content=">" Opacity="0.75"    Background="White"></Label>
             <Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="75" Click="StockClick"/>

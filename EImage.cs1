@@ -307,38 +307,53 @@ public class EImage : EControl
 
 
 
-                if (base.Parent is EPic ePic)
-                {
-                    string dir = Path.Combine(Get图片目录(), ePic.Prefix);
-                    if (Directory.Exists(dir))
-                    {
-                        string fileName = GetFileName();
-                        string path = Path.Combine(dir, fileName);
-                        if (File.Exists(path))
-                        {
-                            _url = path;
-                        }
+				//if (base.Parent is EPic ePic)
+				//{
+				//	string dir = Path.Combine(Get图片目录(), ePic.Prefix);
+				//	if (Directory.Exists(dir))
+				//	{
+    //                    if (!OSS.IsFile(_url))
+    //                    {
+    //                        _originUrl = OSS.Origin(_url);
+    //                    }
+    //                    string fileName = GetFileName();
+				//		string path = Path.Combine(dir, fileName);
+				//		if (File.Exists(path))
+				//		{
+    //                        this.Replacing?.Invoke(_url, path);
+    //                        //this.Replacing?.Invoke(_originUrl, path);
+    //                        _url = path;
+                         
+    //                        FileLoadAsync();
+    //                        return;
+    //                    }
 
-                        string text = Path.Combine(dir, "白框." + fileName);
-                        if (File.Exists(text))
-                        {
-                            _url = text;
-                        }
-                        else
-                        {
-                            text = Path.Combine(dir, "白框." + GetFileName());
+				//		string text = Path.Combine(dir, "白框." + fileName);
+				//		if (File.Exists(text))
+				//		{
+    //                        this.Replacing?.Invoke(_url, path);
+    //                       // this.Replacing?.Invoke(_originUrl, text);
+    //                        _url = text;
+    //                        FileLoadAsync();
+    //                        return;
+    //                    }
+				//		else
+				//		{
+				//			text = Path.Combine(dir, "白框." + GetFileName());
+				//			if (File.Exists(text))
+				//			{
+    //                            this.Replacing?.Invoke(_url, text);
+    //                            _url = text;
+    //                           // this.Replacing?.Invoke(_originUrl, text);
+    //                            FileLoadAsync();
+    //                            return;
+    //                        }
 
-                            if (File.Exists(text))
-                            {
-                                _url = text;
-                            }
+				//		}
+				//	}
+				//}
 
-                        }
-
-                    }
-                }
-
-                if (string.IsNullOrEmpty(_url))
+				if (string.IsNullOrEmpty(_url))
 				{
 					Image = null;
 					State = ((!Editable) ? ImageState.OK : ImageState.Init);
@@ -771,6 +786,46 @@ public class EImage : EControl
 		}
 	}
 
+	public async Task MySave(string id) {
+        if (string.IsNullOrEmpty(_url))
+        {
+            return;
+        }
+		string dir = Path.Combine(Get图片目录(), id);
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+        if (!OSS.IsFile(_url))
+        {
+            _originUrl = OSS.Origin(_url);
+        }
+        string fileName = GetFileName();
+        string path = Path.Combine(dir, fileName);
+        if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+        {
+            _md5 = EPaint.SaveMd5(path, _img);
+        }
+        else
+        {
+            string url = OSS.Origin(_url);
+            byte[] array = await Cache.GetBytesAsync(url);
+            if (array == null)
+            {
+                array = await DownLoadAsync(url);
+            }
+            if (array == null || array.Length == 0)
+            {
+                return;
+            }
+            Image img = Cache.From(array);
+            _md5 = EPaint.SaveMd5(path, img);
+        }
+       // _url = path;
+        //this.Replacing?.Invoke(_originUrl, path);
+        Invalidate();
+    }
+
 	public async Task Saving(string dir, bool 弹出)
 	{
 		if (string.IsNullOrEmpty(_url) || _img == null || string.IsNullOrEmpty(dir))
@@ -869,7 +924,27 @@ public class EImage : EControl
 		return bitmap;
 	}
 
-	public void Replace(string path)
+    public void MyReplace(string id)
+    {
+        string dir = Path.Combine(Get图片目录(), id);
+		if (!Directory.Exists(dir))
+		{
+			return;
+		}
+		
+		string fileName = GetFileName();
+		string path = Path.Combine(dir, fileName);
+		if (!File.Exists(path))
+		{
+			return;
+		}
+
+		string url = _url;
+        Url = path;
+        this.Replacing?.Invoke(url, _url);
+    }
+
+    public void Replace(string path)
 	{
 		string url = _url;
 		Url = path;
@@ -885,6 +960,43 @@ public class EImage : EControl
 		}
 	}
 
+	public async Task MyWhite(string id) {
+
+        if (string.IsNullOrEmpty(_url))
+        {
+            return;
+        }
+		string dir = Path.Combine(Get图片目录(), id);
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+        string fname = GetFileName();
+        Path.Combine(dir, fname);
+        Image image;
+        if (_mode == PictureBoxSizeMode.AutoSize || _mode == PictureBoxSizeMode.Normal)
+        {
+            image = _img;
+        }
+        else
+        {
+            string url = OSS.Origin(_url);
+            byte[] array = await Cache.GetBytesAsync(url);
+            if (array == null)
+            {
+                array = await DownLoadAsync(url);
+            }
+            if (array == null || array.Length == 0)
+            {
+                return;
+            }
+            image = Cache.From(array);
+        }
+        string arg = OSS.Origin(_url);
+        string text = Path.Combine(dir, fname);
+		EPaint.白框保存(text, image, ref _md5);
+    }
+
 	public async Task 白框ing(string dir, bool 弹出)
 	{
 		if (string.IsNullOrEmpty(_url) || _img == null)
@@ -894,7 +1006,7 @@ public class EImage : EControl
 		if (base.Parent is EPic ePic)
 		{
 			dir = Path.Combine(dir, ePic.Prefix);
-		}
+		} 
 		if (!Directory.Exists(dir))
 		{
 			Directory.CreateDirectory(dir);

@@ -5,15 +5,14 @@ using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Markup;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using Microsoft.Extensions.Configuration;
+
 namespace stock_tool;
 
 /// <summary>
@@ -171,7 +170,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"加载图片失败：{ex.Message}");
+            Logger.Error($"加载图片失败：{ex.Message}");
         }
     }
 
@@ -198,7 +197,7 @@ public partial class MainWindow : Window
                     Logger.Info($"压缩成功: {zipFileName}");
                 }
                 Directory.Delete(sourceFolder, true);
-                Logger.Info($"删除成功: {sourceFolder}");
+                Logger.Info($"清理成功: {sourceFolder}");
             }
             else
             {
@@ -218,9 +217,49 @@ public partial class MainWindow : Window
         return (int)(isWidth ? int.Parse(_configuration[config]) * 1280 / width
             : int.Parse(_configuration[config]) * 720 / height);
     }
+
+
     private void SaveClick(object sender, RoutedEventArgs e)
     {
+        string path = FileUtil.GetLatestCreatedFolder(_configuration["SaveCmpPath"]);
+        int size = 0;
+        foreach (string fileName in Directory.GetFiles(path))
+        {
+            if (!Path.GetFileName(fileName).StartsWith("text-")) {
+                continue;
+            }
+            size++;
+            string text = File.ReadAllText(Path.Combine(path, fileName));
+            // 解析 JSON 字符串
+            JsonNode jsonNode = JsonNode.Parse(text);
 
+            // 获取 root 数组中的第一个元素
+            JsonNode rootItem = jsonNode["root"][0];
+
+            string id = rootItem["sale_id"].AsValue().ToString();
+
+            // 获取 sale_pic 数组
+            JsonArray salePicArray = rootItem["sale_pic"].AsArray();
+
+            // 获取图片个数
+            int pictureCount = salePicArray.Count;
+            if (pictureCount == 0) {
+                Logger.Info($"{id}  sale_pic为空");
+                continue;
+            }
+
+            string imagePath = _configuration["ImagePath"] + id;
+            if (!Directory.Exists(imagePath)) {
+                Logger.Info($"{id}  里【{pictureCount}】张,全部未下载");
+            } else {
+                int targetCount = Directory.GetFiles(imagePath).Length;
+                if (targetCount != pictureCount)
+                {
+                    Logger.Info($"{id}  里部分【{pictureCount - targetCount}】张,未下载");
+                }
+            }
+        }
+        Logger.Info($"检测完毕,共{size}个");
     }
 
     public static Bitmap 白框(System.Drawing.Image img, int whiteSize)
@@ -238,34 +277,37 @@ public partial class MainWindow : Window
         graphics.DrawImage(img, new Rectangle(50, 50, bitmap.Width - 100, bitmap.Height - 100), new Rectangle(0, 0, img.Width, img.Height), GraphicsUnit.Pixel);
         return bitmap;
     }
-    
-        
 
-        private void ProcessFile(string filePath)
+
+
+    private void ProcessFile(string filePath)
+    {
+        int width = int.Parse(_configuration["WhiteSize"]);
+        try
         {
-            try
+            using (System.Drawing.Image image = System.Drawing.Image.FromFile(filePath))
             {
-                using (System.Drawing.Image image = System.Drawing.Image.FromFile(filePath))
+                using MemoryStream memoryStream = new MemoryStream();
+                Save(memoryStream, 白框(image, width));
+                memoryStream.Seek(0L, SeekOrigin.Begin);
+                byte[] buffer = new byte[4096];
+                using (FileStream fileStream = File.Open(filePath + ".白框", FileMode.Create, FileAccess.Write, FileShare.Read))
                 {
-                    using MemoryStream memoryStream = new MemoryStream();
-                    Save(memoryStream, image);
-                    memoryStream.Seek(0L, SeekOrigin.Begin);
-                    byte[] buffer = new byte[4096];
-                    using (FileStream fileStream = File.Open(filePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                    int count;
+                    while ((count = memoryStream.Read(buffer, 0, 4096)) > 0)
                     {
-                        int count;
-                        while ((count = memoryStream.Read(buffer, 0, 4096)) > 0)
-                        {
-                            fileStream.Write(buffer, 0, count);
-                        }
+                        fileStream.Write(buffer, 0, count);
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"处理图片文件 {filePath} 时出错: {ex.Message}");
-            }
+            File.Delete(filePath);
+            File.Move(filePath + ".白框", filePath);
         }
+        catch (Exception ex)
+        {
+            Logger.Error($"处理图片文件 {filePath} 时出错: {ex.Message}");
+        }
+    }
 
 
     public static void Save(Stream sr, System.Drawing.Image img)
@@ -296,6 +338,7 @@ public partial class MainWindow : Window
 
     private void WhiteClick(object sender, RoutedEventArgs e)
     {
+
         // 获取用户输入的源文件夹路径
         string sourceFolder = _configuration["ImagePath"];
         string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
@@ -324,24 +367,36 @@ public partial class MainWindow : Window
         {
             Logger.Error($"压缩失败: {ex.Message}");
         }
-
-        try
+        Task.Run(async () =>
         {
-            var allFiles = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories);
-            foreach (var file in allFiles)
+            //List<Task> task = new List<Task>();
+            try
             {
-                ProcessFile(file);
-            }
-        }
-        catch (UnauthorizedAccessException)
-        {
-            MessageBox.Show("没有权限访问某些文件夹或文件。");
-        }
-        catch (DirectoryNotFoundException)
-        {
-            MessageBox.Show("指定的文件夹未找到。");
-        }
+                var allFiles = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories);
 
+                List<Task> tasks = new List<Task>();
+                foreach (var file in allFiles)
+                {
+                    tasks.Add(Task.Run(() => ProcessFile(file)));
+                   
+                }
+                foreach (var task in tasks) {
+                    await task;
+                }
+                Logger.Info($"本地白框,处理完毕,共 {allFiles.Count()} ");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Logger.Error("没有权限访问某些文件夹或文件。");
+            }
+            catch (DirectoryNotFoundException)
+            {
+                MessageBox.Show("指定的文件夹未找到。");
+            }
+            //foreach(Task t in task) {
+            //    t.Wait();
+            //}
+        });
     }
 
     private void StockClick(object sender, RoutedEventArgs e)
@@ -432,6 +487,9 @@ public partial class MainWindow : Window
                 }
                 try
                 {
+                    if (_configuration["maxNum"] != null && i >=  int.Parse(_configuration["maxNum"])) {
+                        MessageBox.Show("已处理250个是否继续?");
+                    }
 
 
                     AutomationElement id = Retry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, _configuration["ID"]), 20, 100);
@@ -542,7 +600,7 @@ public partial class MainWindow : Window
         if (match.Success)
         {
             int totalNum = int.Parse(match.Value);
-            return totalNum + totalNum / 60;
+            return totalNum + ( totalNum / 60) + 5;
         }
         return 0;
     }

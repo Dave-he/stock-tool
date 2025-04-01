@@ -19,6 +19,8 @@ public class Logger
     private readonly RichTextBox _logTextBox;
     private readonly string _logFilePath;
 
+    private readonly object _lockObject = new object();
+
     private Logger(RichTextBox logTextBox, string logFilePath)
     {
         EnsureLogDirectoryExists(logFilePath);
@@ -72,44 +74,49 @@ public class Logger
     private void InternalLog(string message, LogLevel level)
     {
         var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}";
-
-        // 写入日志文件
-        try
+        // 使用 lock 语句对方法加锁
+        lock (_lockObject)
         {
-            File.AppendAllText(_logFilePath, logEntry + Environment.NewLine);
+            // 写入日志文件
+            try
+            {
+
+                File.AppendAllLinesAsync(_logFilePath, [logEntry]);
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入日志文件时出错: {ex.Message}");
+            }
+
+            // 在 RichTextBox 中显示日志
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var doc = _logTextBox.Document;
+                var paragraph = new Paragraph();
+
+                var timeRun = new Run($"[{DateTime.Now:HH:mm:ss}] ")
+                {
+                    Foreground = Brushes.Gray
+                };
+                paragraph.Inlines.Add(timeRun);
+
+                var levelRun = new Run($"[{level}] ")
+                {
+                    Foreground = GetLevelColor(level)
+                };
+                paragraph.Inlines.Add(levelRun);
+
+                var messageRun = new Run(message)
+                {
+                    Foreground = GetLevelColor(level)
+                };
+                paragraph.Inlines.Add(messageRun);
+
+                doc.Blocks.Add(paragraph);
+                _logTextBox.ScrollToEnd();
+            });
         }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"写入日志文件时出错: {ex.Message}");
-        }
-
-        // 在 RichTextBox 中显示日志
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            var doc = _logTextBox.Document;
-            var paragraph = new Paragraph();
-
-            var timeRun = new Run($"[{DateTime.Now:HH:mm:ss}] ")
-            {
-                Foreground = Brushes.Gray
-            };
-            paragraph.Inlines.Add(timeRun);
-
-            var levelRun = new Run($"[{level}] ")
-            {
-                Foreground = GetLevelColor(level)
-            };
-            paragraph.Inlines.Add(levelRun);
-
-            var messageRun = new Run(message)
-            {
-                Foreground = GetLevelColor(level)
-            };
-            paragraph.Inlines.Add(messageRun);
-
-            doc.Blocks.Add(paragraph);
-            _logTextBox.ScrollToEnd();
-        });
     }
 
     private Brush GetLevelColor(LogLevel level)
