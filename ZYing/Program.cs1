@@ -1,0 +1,436 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Sockets;
+using System.Net;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using ZYing.Interface;
+using System.Windows.Forms;
+using ZYing.Detail;
+using ZYing.Web;
+using System.IO;
+using System.Reflection;
+using ZYing.Data;
+
+namespace ZYing.UI
+{
+    public class Server
+    {
+        // 使用 Lazy<T> 实现单例模式，确保线程安全
+        private static readonly Lazy<Server> lazy = new Lazy<Server>(() => new Server());
+        public static Server Instance { get { return lazy.Value; } }
+
+        private const int Port = 32025;
+        private TcpListener listener;
+        private Thread listenThread;
+        private bool isRunning;
+
+        private EPanelEx panel;
+        private EGallery gallery;
+        private ETurn turn;
+
+        private Server()
+        {
+            listener = new TcpListener(IPAddress.Any, Port);
+        }
+
+        private bool add = true;
+
+        public Server Load(EPanelEx ePanelEx) {
+
+            if (add) {
+                MainForm main = ((MainForm)ePanelEx.Parent.Parent.Parent.Parent);
+                main.FormClosing += (sender, e) =>
+                {
+                    Stop();
+                };
+                add = false;
+            }
+          
+            panel = ePanelEx;
+            foreach (EControl con in ePanelEx.Parent.Controls[0].Controls)
+            {
+                if (con is EGallery eg && eg.Name.Equals("grid"))
+                {
+                    gallery = eg;
+                }
+                if (con is ETurn a && a.Name.Equals("PTurn"))
+                {
+                    turn = a;
+                }
+            }
+     
+
+            return this;
+        }
+
+        public void Start()
+        {
+            if (isRunning) return;
+
+            isRunning = true;
+            listenThread = new Thread(ListenForClients);
+            listenThread.Start();
+        }
+
+        public void Stop()
+        {
+            if (!isRunning) return;
+
+            panel = null;
+            gallery = null;
+            turn = null;
+            isRunning = false;
+            listener.Stop();
+            listenThread.Join();
+        }
+
+        private void ListenForClients()
+        {
+            try
+            {
+                listener.Start();
+                Console.WriteLine($"服务器已启动，监听端口 {Port}...");
+
+                while (isRunning)
+                {
+                    TcpClient client = listener.AcceptTcpClient();
+                    Console.WriteLine("客户端已连接。");
+
+                    Thread clientThread = new Thread(() => HandleClient(client));
+                    clientThread.Start();
+                }
+            }
+            catch (Exception ex)
+            {
+                if (isRunning)
+                {
+                    Console.WriteLine($"服务器发生错误: {ex.Message}");
+                }
+            }
+        }
+
+        private void HandleClient(TcpClient client)
+        {
+            try
+            {
+                NetworkStream stream = client.GetStream();
+                byte[] buffer = new byte[1024];
+
+                while (true)
+                {
+                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
+
+                    // 如果没有读取到数据，说明客户端已经关闭连接
+                    if (bytesRead == 0)
+                    {
+                        break;
+                    }
+
+
+                    try
+                    {
+                        string command = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        string response = ProcessCommand(command);
+                        byte[] responseData = Encoding.UTF8.GetBytes(response);
+                        stream.Write(responseData, 0, responseData.Length);
+                    }
+                    catch (Exception ex)
+                    {
+                        byte[] responseData = Encoding.UTF8.GetBytes(ex.Message);
+                        stream.Write(responseData, 0, responseData.Length);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"处理客户端请求时发生错误: {ex.Message}");
+            }
+            finally
+            {
+                client.Close();
+                Console.WriteLine("客户端连接已关闭。");
+            }
+        }
+
+        private string PageSwith()
+        {
+
+            int currentNum = 0;
+            string currentName = panel.Page.GetInnerName();
+      
+            foreach (ICell cell in gallery.Cells)
+            {
+                if (cell.Name == currentName)
+                {
+                    break;
+                }
+                currentNum++;
+            }
+            currentNum++;
+            if (currentNum == gallery.Cells.Count)
+            {
+                panel.Invoke((MethodInvoker)delegate
+                {
+                    int p = turn.Page + 1;
+                    turn.Page = p > turn.TotalPages ? 1 : p;
+                    turn.MyChange();
+                });
+               
+                return "change";
+            }
+            else if (currentNum > gallery.Cells.Count)
+            {
+                return gallery.Cells[0].Name;
+                //panel.Invoke((MethodInvoker)delegate
+                //{
+                    
+                //    gallery.CurrentCell = gallery.Cells[0];
+                //});
+            }
+            else
+            {
+                return gallery.Cells[currentNum].Name;
+                ////panel.Invoke((MethodInvoker)delegate
+                ////{
+                //    gallery.CurrentCell = gallery.Cells[currentNum];
+                //});
+
+            }
+            return panel.Name;
+        }
+
+
+        private static string getRandomNum(string value)
+        {
+            if (value.IsNullOrEmpty() || !value.Contains("-"))
+            {
+                return value;
+            }
+            string[] split = value.Split("-");
+            int min = int.Parse(split[0]);
+            int max = int.Parse(split[1]);
+            if (min > max)
+            {
+                int temp = min;
+                min = max;
+                max = temp;
+            }
+            int randomNumber = new Random().Next(min, max);
+            return randomNumber.ToString();
+        }
+
+
+        private void Submit() 
+        {
+            panel.Invoke((MethodInvoker)delegate
+            {
+                EStockEdit table = null;
+                EButton button = null;
+                EText all = null;
+                EPic pic = null;
+                foreach (EControl con in panel.Page.Controls)
+                {
+                    if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
+                    {
+                        table = eg;
+                    }
+                    if (con is EButton btn1 && btn1.Name.Equals("btnSubmit1"))
+                    {
+                        button = btn1;
+                    }
+                    if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
+                    {
+                        repeat.Checked = true;
+                    }
+                    if (con is EPic epic && epic.Name.Equals("epic"))
+                    {
+                        pic = epic;
+                    }
+                    if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
+                    {
+
+                        foreach (EControl con1 in sl.Controls)
+                        {
+
+                            if (con1 is ETextUnit tu && tu.Name.Equals("txtNum"))
+                            {
+
+                                foreach (EControl con2 in con1.Controls)
+                                {
+
+                                    if (con2 is EText tu2)
+                                    {
+                                        all = tu2;
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+
+                        }
+                    }
+                }
+
+                if (pic != null)
+                {
+
+                    foreach (EControl con in pic.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+                            eImage.MyReplace(pic.Prefix);
+                        }
+                    }
+                }
+
+                JsonArray config = JsonArray.Create(File.ReadAllText("stock.json"));
+                bool modify = true;
+                foreach (ETRow row in table.Rows)
+                {
+                    foreach (ETCell cell in row.Cells)
+                    {
+                        foreach (JsonElement item in config)
+                        {
+                            if (cell.Name == item.GetString("key"))
+                            {
+                                cell.Text = getRandomNum(item.GetString("value"));
+                                modify = false;
+                            }
+                        }
+                    }
+                }
+
+                if (modify && all != null)
+                {
+                    foreach (JsonElement item in config)
+                    {
+                        if (!item.GetString("key").Equals("num"))
+                        {
+                            continue;
+                        }
+                        all.Text = getRandomNum(item.GetString("value"));
+                    }
+                }
+                //this.Invoke(() => changePage(eGallery, eTurn, button));
+
+                if (button != null)
+                {
+                    button.MyClick();
+                }
+            });
+        }
+
+        private static string FindFirstFile(string id, string path = "log") {
+            string lastFile = null;
+            DateTime latestCreationTime = DateTime.MinValue;
+            foreach (string subPath in Directory.GetDirectories(path))
+            {
+                foreach (string filePath in Directory.GetFiles(subPath))
+                {
+                    if (Path.GetFileName(filePath) != "text-" + id + ".json") {
+                        continue;
+                    }
+                    DateTime creationTime = File.GetCreationTime(filePath);
+                    if (creationTime > latestCreationTime) { 
+                        lastFile = filePath;
+                    }
+                }
+            }
+            return lastFile;
+        }
+
+        private void Loading(string id) {
+            string text = FindFirstFile(id);
+            if (text == null)
+            {
+                return;
+            }
+
+            panel.Invoke((MethodInvoker) async delegate
+            {
+                // Sale sale = (Sale)panel.Page;
+                // object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+                // if (zClient == null)
+                // {
+                //     MessageBox.Show("Collect ZClient is Null");
+                //     return;
+                // }
+                // FieldInfo commandField = zClient.GetType().GetField("Command");
+                //// ZClient
+                // commandField.SetValue(zClient, "spider.detail");
+                // MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]{typeof(string), typeof(string)}, null);
+                // object[] parameters2 = new object[2] { "id", id };
+                // object paraTask = posAsync.Invoke(zClient, parameters2);
+                // Task task2 = paraTask as Task;
+                // Type type2 = paraTask.GetType().GetGenericArguments()[0];
+                // PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+                // await task2;
+
+                // object value2 = paraProperty.GetValue(paraTask);
+                // RecordSet set = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet);
+                RecordSet recordSet = RecordSet.From(File.ReadAllBytes(text));
+                ((Sale)panel.Page).Read(recordSet);
+            });
+
+        }
+
+        private string ProcessCommand(string command)
+        {
+            try
+            {
+                if (command.StartsWith("Load"))
+                {
+                    string id = command.Split(" ")[1];
+                    Loading(id);
+                    return "ok";
+                }
+
+                switch (command)
+                {
+                    case "PageSwitch":
+                        return PageSwith();
+                    case "Load":
+                        break;
+                    case "Save":
+                        Submit();
+                        break;
+                    default:
+                        return "error: 未知命令";
+                }
+                return "ok";
+            }
+            catch (Exception ex)
+            {
+                return $"error: {ex.Message}";
+            }
+        }
+    }
+
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+       
+            JsonArray root = JsonObject.Create(File.ReadAllText("C:\\ZYing\\log\\2025-03-30 14-02-47\\text-383831467.json"))
+                .GetArray("root");
+            foreach (JsonObject node in root)
+            {
+                List<string> list = node.GetArray("sale_pic").Select(c => c.ToString()).ToList();
+                foreach (string line in list) {
+                    Console.WriteLine(line);
+                }
+            }
+            
+            //Server server = Server.Instance;
+            //server.Start();
+
+                    //Console.WriteLine("按任意键停止服务器...");
+                    //Console.ReadKey();
+
+                    //server.Stop();
+        }
+    }
+}

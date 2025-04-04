@@ -1,9 +1,7 @@
-﻿
-using System.Threading.Tasks;
+﻿using stock_tool.common;
 using System.Windows.Automation;
-using System.Windows.Controls;
 
-namespace stock_tool
+namespace stock_tool.utils
 {
     public static class AutomationSearchHelper
     {
@@ -259,7 +257,7 @@ namespace stock_tool
         /// 打印表格信息
         /// </summary>
         /// <param name="tableElement">表格元素</param>
-        public static void PrintTableInfo(AutomationElement tableElement, Log log)
+        public static void PrintTableInfo(AutomationElement tableElement)
         {
             if (tableElement.TryGetCurrentPattern(GridPattern.Pattern, out object gridPatternObj))
             {

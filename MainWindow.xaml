@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:stock_tool"
+        xmlns:local="clr-namespace:stock_tool.common"
+        xmlns:local_common="clr-namespace:stock_tool.common"
         mc:Ignorable="d"
-        Title="MainWindow" Height="500" Width="500"
-        KeyDown="Window_KeyDown">
+        Title="MainWindow" Height="500" Width="500">
     <Window.Background>
         <ImageBrush x:Name="BackgroundImageBrush" Stretch="UniformToFill"
             AlignmentX="Center" AlignmentY="Center"/>
@@ -27,13 +27,13 @@
 
         <!-- 横向排列的4个按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
-            <Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="75" Click="SaveClick"/>
+            <Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="75"/>
             <Label Content="> 人工P图 >" Opacity="0.75"  Background="White"></Label>
-            <Button x:Name="WhiteBtn" Content="本地白框" Background="LightGreen" Width="75" Click="WhiteClick"/>
+            <Button x:Name="WhiteBtn" Content="本地白框" Background="LightGreen" Width="75"/>
             <Label Content=">" Opacity="0.75"    Background="White"></Label>
-            <Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="75" Click="StockClick"/>
+            <Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="75"/>
             <Label Content=">" Opacity="0.75"    Background="White"></Label>
-            <Button x:Name="ZipBtn" Content="清理image" Background="LightYellow" Width="75" Click="ZipClick"/>
+            <Button x:Name="ZipBtn" Content="清理image" Background="LightYellow" Width="75"  local_common:DebounceBehavior.DebounceTime="5000"/>
             <Label Content=">" Opacity="0.75"  Background="White"></Label>
             
             <!-- <Label Content=">"></Label>-->
@@ -54,14 +54,14 @@
         </Grid>
 
         <!-- 横向排列的4个按钮 -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top">
-            <Button x:Name="SaveTestBtn" Content="保存测试"  Width="75"  Click="SaveTest"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top" Visibility="Hidden">
+            <Button x:Name="SaveTestBtn" Content="保存测试"  Width="75" />
             <Label Content=">"></Label>
-            <Button x:Name="StockTestBtn" Content="单个库存" Width="75" Click="StockTest"/>
+            <Button x:Name="StockTestBtn" Content="单个库存" Width="75"/>
             <Label Content=">"></Label>
-            <Button x:Name="PageTestBtn" Content="切页测试" Width="75" Click="PageTest"/>
+            <Button x:Name="PageTestBtn" Content="切页测试" Width="75" />
             <Label Content=">"></Label>
-            <Button x:Name="WhiteTestBtn" Content="白框测试" Width="75" Click="WhiteTest"/>
+            <Button x:Name="WhiteTestBtn" Content="白框测试" Width="75"/>
         </StackPanel>
         <!-- 用于布局分割线和中间文字的Grid -->
         <Grid HorizontalAlignment="Stretch" Margin="20,110,20,0" VerticalAlignment="Top">

@@ -1,8 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows.Automation;
-using System.Windows.Input;
 
-namespace stock_tool;
+namespace stock_tool.utils;
 
 public static class MouseSimulator
 {

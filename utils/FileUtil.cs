@@ -1,7 +1,7 @@
-﻿
+﻿using stock_tool.common;
 using System.IO;
 
-namespace stock_tool;
+namespace stock_tool.utils;
 
 
 class FileUtil

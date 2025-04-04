@@ -1,10 +1,7 @@
-﻿
-using System;
-using System.Drawing;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 
-namespace stock_tool;
+namespace stock_tool.utils;
 
 public class StockInput
 {
@@ -23,7 +20,7 @@ public class StockInput
    
         foreach (char c in numberStr)
         {
-            byte keyCode = (byte)CharToVirtualKey(c);
+            byte keyCode = CharToVirtualKey(c);
             PressKey(keyCode);
         }
 

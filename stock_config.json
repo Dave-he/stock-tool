@@ -2,15 +2,16 @@
   "TargetWindowTitle": "分销系统",
   "LogFilePath": "log/",
   "SaveCmpPath": "log/",
-  "ImagePath": "image/",
+  "Cache": "cache",
+  "ImagePath": "image",
   "TargetElementTitle": "产品详细",
   "ID": "lblID",
   "TableId": "vtbl",
   "Submit": "btnSubmit1",
   "Group": "lblGroup",
-  "RefreshRight": "55", //刷新图标偏移量
+  "RefreshRight": "70", //刷新图标偏移量
   "RefreshTop": "25",
-  "StockRight": "130",
+  "StockRight": "170",
   "SaveRight": "190",
   "WhiteRight": "160",
   "Subject": "lblSubject", //用来点击第一个tab

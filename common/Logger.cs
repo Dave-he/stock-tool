@@ -4,7 +4,7 @@ using System.Windows;
 using System.IO;
 using System.Windows.Documents;
 
-namespace stock_tool;
+namespace stock_tool.common;
 public enum LogLevel
 {
     Debug,
