@@ -99,6 +99,10 @@ class StockConfigService
                     MessageBox.Show($"配置已改为 {stockTextBox.Text}");
                 }
             }
+            else { 
+                File.WriteAllText(StockFilePath, $"[{{\"key\":\"num\",\"value\":\"{stockTextBox.Text}\"}}]");
+                MessageBox.Show($"配置已改为 {stockTextBox.Text}");
+            }
         }
         catch (Exception ex)
         {

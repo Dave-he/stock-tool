@@ -86,7 +86,7 @@ class SubmitService
     private void Submit(int maxCount, AutomationElement targetWindow)
     {
         int errorTime = 1;
-        List<string> processed = new List<string>();
+        HashSet<string> processed = new HashSet<string>();
         for (int i = 1; i <= maxCount; i++)
         {
             try
