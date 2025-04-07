@@ -1,11 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace stock_tool.common;
 
 class Config
@@ -31,4 +25,8 @@ class Config
     }
 
     public static string Get(string key) => _configuration[key];
+
+    public static string GetDefault(string key, string de) => Get(key) == null ? de : Get(key);
+
+    public static bool Enable(string key) => Get(key) == "true";
 }

@@ -45,11 +45,13 @@ public static class MouseSimulator
     {
         if(left) { 
             mouse_event(MOUSEEVENTF_LEFTDOWN, x, y, 0, 0);
+            Thread.Sleep(50);
             mouse_event(MOUSEEVENTF_LEFTUP, x, y, 0, 0);
         } 
         else { 
           
             mouse_event(MOUSEEVENTF_RIGHTDOWN, x, y, 0, 0);
+            Thread.Sleep(50);
             mouse_event(MOUSEEVENTF_RIGHTUP, x, y, 0, 0);
              
         }

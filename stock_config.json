@@ -16,9 +16,19 @@
   "WhiteRight": "160",
   "Subject": "lblSubject", //用来点击第一个tab
   "CloseDiff": "20", //关闭按钮和产品编号最右边距离
-  "WaitMillSeconds": "1000",
+  "WhiteThreadNum": "20",
   "ResultFilePath": "result/",
   "CompareFilePath": "stock_tmp.txt",
   "WhiteSize": "1600",
-  "MaxNum": "250"
+  "MaxNum": "250",
+  "Menu": "采集列表,产品列表",
+  "SaveEnable": "true",
+  "StockEnable": "true",
+  "StockFilePath": "stock.json",
+  "SubmitBtn": "btn提交",
+  "SaveBtn": "btn保存",
+  "WhiteBtn": "btn白框",
+  "WaitMillSeconds": "1000",
+  "WaitTime": "3600",
+  "RefreshBtn": "btn刷新"
 }

@@ -13,57 +13,69 @@
     </Window.Background>
     <Grid>
        
-        <!-- 用于布局分割线和中间文字的Grid -->
-        <Grid HorizontalAlignment="Stretch" Margin="20,10,20,0" VerticalAlignment="Top">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Margin="10,0" Text="正常流程" VerticalAlignment="Center"/>
-            <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+      
+
+        <Grid x:Name="SaveGrid">
+            <!-- 用于布局分割线和中间文字的Grid -->
+            <Grid HorizontalAlignment="Stretch" Margin="20,10,20,0" VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Margin="10,0" Text="保存流程" VerticalAlignment="Center"/>
+                <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            </Grid>
+
+       
+            <!-- 横向排列的4个按钮 -->
+            <StackPanel x:Name="SavePanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
+                <!--<Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="75"/>-->
+                <Label Content=" 按页保存 > 人工P图 > " Opacity="0.75"  Background="White"></Label>
+                <Button x:Name="WhiteBtn" Content="本地白框" Background="LightGreen" Width="75"/>
+                <Label Content=" > " Opacity="0.75"    Background="White"></Label>
+                <Button x:Name="SubmitBtn" Content="开始提交"  Background="LightBlue" Width="75"  Click="SubmitBtn_Click"/>
+                <!--<Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="75"/>-->
+                <Label Content=" > " Opacity="0.75"    Background="White"></Label>
+                <Button x:Name="ClearBtn" Content="清理image" Background="LightYellow" Width="75"/>
+                <!--<Label Content=" > " Opacity="0.75"  Background="White"></Label>-->
+
+                <!-- <Label Content=">"></Label>-->
+                <!--<Button x:Name="WhiteBtnCopy" Content="全部库存" Background="LightPink" Width="75" Click="StockClick"/>-->
+            </StackPanel>
         </Grid>
 
-        <!-- 横向排列的4个按钮 -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
-            <Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="75"/>
-            <Label Content="> 人工P图 >" Opacity="0.75"  Background="White"></Label>
-            <Button x:Name="WhiteBtn" Content="本地白框" Background="LightGreen" Width="75"/>
-            <Label Content=">" Opacity="0.75"    Background="White"></Label>
-            <Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="75"/>
-            <Label Content=">" Opacity="0.75"    Background="White"></Label>
-            <Button x:Name="ZipBtn" Content="清理image" Background="LightYellow" Width="75"  local_common:DebounceBehavior.DebounceTime="5000"/>
-            <Label Content=">" Opacity="0.75"  Background="White"></Label>
+
+        <Grid x:Name="StockGrid">
+            <!-- 用于布局分割线和中间文字的Grid -->
+            <Grid HorizontalAlignment="Stretch" Margin="20,60,20,0" VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Margin="10,0" Text="库存流程" VerticalAlignment="Center"/>
+                <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- 横向排列的4个按钮 -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top">
+                <Button x:Name="DialogBtn" Content="开始监听" Width="75" />
+                <Label Content="  输入库存 >"  Opacity="0.75" Background="White"/>
+                <TextBox x:Name="stockTextBox" TextWrapping="Wrap" HorizontalAlignment="Center" Width="80" 
+                         TextAlignment="Center" VerticalContentAlignment ="Center"
+                         BorderBrush="Green" Margin="5,0,5,0"/>
+              
+                <Button x:Name="Empty" Content="确认" Width="40"/>
+                <Label Content=">"  Opacity="0.75" Background="White"/>
+                <Button x:Name="SubmitBtn2" Content="库存提交"  Background="LightBlue"  Width="75" Click="SubmitBtn_Click" />
+    
+            </StackPanel>
+        </Grid>
             
-            <!-- <Label Content=">"></Label>-->
-            <!--<Button x:Name="WhiteBtnCopy" Content="全部库存" Background="LightPink" Width="75" Click="StockClick"/>-->
-        </StackPanel>
-
- 
-        <!-- 用于布局分割线和中间文字的Grid -->
-        <Grid HorizontalAlignment="Stretch" Margin="20,60,20,0" VerticalAlignment="Top">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Separator Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Margin="10,0" Text="测试单个" VerticalAlignment="Center"/>
-            <Separator Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
-        </Grid>
-
-        <!-- 横向排列的4个按钮 -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top" Visibility="Hidden">
-            <Button x:Name="SaveTestBtn" Content="保存测试"  Width="75" />
-            <Label Content=">"></Label>
-            <Button x:Name="StockTestBtn" Content="单个库存" Width="75"/>
-            <Label Content=">"></Label>
-            <Button x:Name="PageTestBtn" Content="切页测试" Width="75" />
-            <Label Content=">"></Label>
-            <Button x:Name="WhiteTestBtn" Content="白框测试" Width="75"/>
-        </StackPanel>
-        <!-- 用于布局分割线和中间文字的Grid -->
+            <!-- 用于布局分割线和中间文字的Grid -->
         <Grid HorizontalAlignment="Stretch" Margin="20,110,20,0" VerticalAlignment="Top">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>

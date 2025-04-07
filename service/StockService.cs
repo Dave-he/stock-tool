@@ -11,6 +11,18 @@ namespace stock_tool.service;
 class StockService
 {
 
+    public void StockClickPro(object sender, RoutedEventArgs e)
+    {
+        Logger.Info("开始处理所有....");
+        nint ptr = WindowApi.GetControl(Config.Get("TargetWindowTitle"), Config.Get("TargetElementTitle"));
+        if (ptr == IntPtr.Zero) {
+           
+            Logger.Info($"找不到【{Config.Get("TargetElementTitle")}】，请运行程序,并打开某商品");
+            return;
+        }
+        WindowApi.SendClick(ptr, 10);
+    }
+
 
     public void StockClick(object sender, RoutedEventArgs e)
     {
@@ -105,7 +117,8 @@ class StockService
                     AutomationElement id = Retry.Run(() => AutomationSearchHelper.FindFirstElementById(targetWindow, Config.Get("ID")), 20, 100);
                     if (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
                     {
-                        throw new Exception("ID错误");
+                        Logger.Error($"第{i}个未处理, ID错误");
+                        continue;
                     }
 
                     int stock = (int)rectangle.Right - ConvertFromConfig(right, true);
@@ -113,21 +126,22 @@ class StockService
                     MouseSimulator.Click(stock, y);
                     Logger.Info($"{id.Current.Name},第{i}个,点击库存图标 x:{stock} y:{y}");
                     last_id = id.Current.Name;
+                    Thread.Sleep(3000);
+                    Thread.Sleep(int.Parse(Config.Get("WaitMillSeconds")));
+                    //if (submit)
+                    //{
+                    //    Thread.Sleep(200);
+                    //    StockInput.PressY();
+                    //    Thread.Sleep(100);
+                    //    StockInput.PressEnter();
+                    //   
+                    //}
+                    //else
+                    //{
+                    //    StockInput.PressN();
+                    //    Thread.Sleep(100);
 
-                    if (submit)
-                    {
-                        Thread.Sleep(200);
-                        StockInput.PressY();
-                        Thread.Sleep(100);
-                        StockInput.PressEnter();
-                        Thread.Sleep(int.Parse(Config.Get("WaitMillSeconds")));
-                    }
-                    else
-                    {
-                        StockInput.PressN();
-                        Thread.Sleep(100);
-
-                    }
+                    //}
 
 
                     processed.Add(id.Current.Name);

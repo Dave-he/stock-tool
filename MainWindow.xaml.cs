@@ -20,6 +20,8 @@ public partial class MainWindow : Window
 
     // 用于控制按钮点击处理是否继续的标志
     private static volatile bool _isProcessing = true;
+    private SubmitService submitService;
+  
 
     public MainWindow()
     {
@@ -32,13 +34,33 @@ public partial class MainWindow : Window
         Logger.Info($"程序启动.... \n读取配置: {File.ReadAllText(CONFIG_FILE)}");
 
         KeyboardHookHelper.SetHook();
+        StockConfigService.Init(stockTextBox);
+        ClearService.Init(ClearBtn);
 
-        ZipBtn.Click += new ZipService().ZipClick;
-        SaveBtn.Click += new SaveCheckService().SaveCheck;
-        WhiteBtn.Click += new WhiteService().WhiteClick;
-        StockService stockService = new StockService();
-        StockBtn.Click += stockService.StockClick;
-        StockTestBtn.Click += stockService.StockTest;
+
+        //SaveBtn.Click += new SaveCheckService().SaveCheck;
+        WhiteService.Init(WhiteBtn);
+        //StockService stockService = new StockService();
+        // StockBtn.Click += stockService.StockClick;
+        // StockTestBtn.Click += stockService.StockTest;
+        DialogService.Init(DialogBtn);
+        submitService = new SubmitService();
+     
+        if (!Config.Enable("SaveEnable")) { 
+            SaveGrid.Visibility = Visibility.Hidden;
+        }
+
+        if (!Config.Enable("StockEnable"))
+        {
+            StockGrid.Visibility = Visibility.Hidden;
+        }
+    }
+
+    private void SubmitBtn_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        submitService.SubmitClick(sender, e);
+
     }
 
     internal static bool IsProcess() { return _isProcessing; }
@@ -46,6 +68,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(System.EventArgs e)
     {
         _isProcessing = false;
+        DialogService.Instance.stopListening();
         base.OnClosed(e);
         // 卸载全局键盘钩子
         KeyboardHookHelper.UnHook();
@@ -98,4 +121,8 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DialogBtn_Click(object sender, RoutedEventArgs e)
+    {
+
+    }
 }

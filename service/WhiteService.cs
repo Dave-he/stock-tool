@@ -7,11 +7,23 @@ using System.IO;
 using System.IO.Compression;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Controls;
 
 namespace stock_tool.service;
 
 class WhiteService
 {
+    private static WhiteService? _instance;
+
+    private Button _btn;
+
+    public WhiteService(System.Windows.Controls.Button whiteBtn)
+    {
+        _btn = whiteBtn;
+        whiteBtn.Click += WhiteClick;
+        //whiteBtn.Click += WhiteTest;
+    }
+
     public void WhiteClick(object sender, RoutedEventArgs e)
     {
 
@@ -19,7 +31,7 @@ class WhiteService
         string sourceFolder = Config.Get("ImagePath");
         string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
 
-
+        _btn.Content = "压缩中..";
         try
         {
             if (!Directory.Exists(sourceFolder))
@@ -33,7 +45,7 @@ class WhiteService
             {
                 string parentPath = parentDir.FullName;
                 string zipFileName = Path.Combine(parentPath, $"image_{timestamp}.zip");
-
+              
                 Logger.Info($"开始压缩..{sourceFolder}");
                 ZipFile.CreateFromDirectory(sourceFolder, zipFileName);
                 Logger.Info($"压缩成功: {zipFileName}");
@@ -43,24 +55,28 @@ class WhiteService
         {
             Logger.Error($"压缩失败: {ex.Message}");
         }
+        _btn.Content = "白框中..";
         Task.Run(async () =>
         {
             //List<Task> task = new List<Task>();
             try
             {
-                var allFiles = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories);
-
-                List<Task> tasks = new List<Task>();
-                foreach (var file in allFiles)
+                int sum = 0;
+                List<string> allFileLarge = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories).ToList();
+                // 按每 30 个元素批量处理
+                int num = int.Parse(Config.GetDefault("WhiteThreadNum", "20"));
+                foreach (var allFiles in allFileLarge.Batch(num))
                 {
-                    tasks.Add(Task.Run(() => ProcessFile(file)));
-
+                    List<Task> tasks = new List<Task>();
+                    foreach (var file in allFiles)
+                    {
+                        tasks.Add(Task.Run(() => ProcessFile(file)));
+                        sum++;
+                    }
+                    await Task.WhenAll(tasks);
                 }
-                foreach (var task in tasks)
-                {
-                    await task;
-                }
-                Logger.Info($"本地白框,处理完毕,共 {allFiles.Count()} ");
+               
+                Logger.Info($"本地白框,处理完毕,共 {allFileLarge.Count()}个商品 {sum} 张图片");
             }
             catch (UnauthorizedAccessException)
             {
@@ -73,6 +89,7 @@ class WhiteService
             //foreach(Task t in task) {
             //    t.Wait();
             //}
+            _btn.Content = "本地白框";
         });
     }
 
@@ -115,16 +132,17 @@ class WhiteService
         {
             using (System.Drawing.Image image = System.Drawing.Image.FromFile(filePath))
             {
-                using MemoryStream memoryStream = new MemoryStream();
-                Save(memoryStream, 白框(image, width));
-                memoryStream.Seek(0L, SeekOrigin.Begin);
-                byte[] buffer = new byte[4096];
-                using (FileStream fileStream = File.Open(filePath + ".白框", FileMode.Create, FileAccess.Write, FileShare.Read))
-                {
-                    int count;
-                    while ((count = memoryStream.Read(buffer, 0, 4096)) > 0)
+                using (MemoryStream memoryStream = new MemoryStream()) {
+                    Save(memoryStream, 白框(image, width));
+                    memoryStream.Seek(0L, SeekOrigin.Begin);
+                    byte[] buffer = new byte[4096];
+                    using (FileStream fileStream = File.Open(filePath + ".白框", FileMode.Create, FileAccess.Write, FileShare.Read))
                     {
-                        fileStream.Write(buffer, 0, count);
+                        int count;
+                        while ((count = memoryStream.Read(buffer, 0, 4096)) > 0)
+                        {
+                            fileStream.Write(buffer, 0, count);
+                        }
                     }
                 }
             }
@@ -181,4 +199,23 @@ class WhiteService
         return bitmap;
     }
 
+    internal static void Init(System.Windows.Controls.Button whiteBtn)
+    {
+        if(_instance == null)
+        {
+            _instance = new WhiteService(whiteBtn);
+        }
+    }
+}
+
+
+static class ListExtensions
+{
+    public static IEnumerable<List<T>> Batch<T>(this List<T> source, int batchSize)
+    {
+        for (int i = 0; i < source.Count; i += batchSize)
+        {
+            yield return source.Skip(i).Take(batchSize).ToList();
+        }
+    }
 }
