@@ -99,6 +99,8 @@ class SubmitService
         // 计算元素的中心位置
         int x = (int)(rect.Left + rect.Width / 2);
         int y = (int)(rect.Top + rect.Height / 2);
+
+string max =Config.Get("maxNum")
         for (int i = 1; i <= maxCount; i++)
         {
             try
@@ -108,10 +110,10 @@ class SubmitService
                     // 如果标志为 false，终止处理
                     return;
                 }
-
-                if (Config.Get("maxNum") != null && i >= int.Parse(Config.Get("maxNum")))
+;
+                if (max != null && i>1 && i % int.Parse(max)==1)
                 {
-                    MessageBox.Show("已处理250个是否继续?");
+                    MessageBox.Show($"已处理{max}个是否继续?");
                 }
 
                 int waitTime = int.Parse(Config.GetDefault("WaitTime", "600"));
