@@ -8,6 +8,7 @@ using System.IO.Compression;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace stock_tool.service;
 
@@ -24,29 +25,21 @@ class WhiteService
         //whiteBtn.Click += WhiteTest;
     }
 
-    public void WhiteClick(object sender, RoutedEventArgs e)
-    {
+    public Button Btn => _btn;
 
-        // 获取用户输入的源文件夹路径
-        string sourceFolder = Config.Get("ImagePath");
-        string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
-
-        _btn.Content = "压缩中..";
+    private async Task Zip(string sourceFolder) {
         try
         {
-            if (!Directory.Exists(sourceFolder))
-            {
-                Logger.Error($"白框失败，源文件夹 {sourceFolder} 不存在");
-                return;
-            }
+            string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
             // 获取源文件夹的上一级目录
             DirectoryInfo parentDir = Directory.GetParent(sourceFolder);
             if (parentDir != null)
             {
                 string parentPath = parentDir.FullName;
                 string zipFileName = Path.Combine(parentPath, $"image_{timestamp}.zip");
-              
+
                 Logger.Info($"开始压缩..{sourceFolder}");
+                
                 ZipFile.CreateFromDirectory(sourceFolder, zipFileName);
                 Logger.Info($"压缩成功: {zipFileName}");
             }
@@ -55,8 +48,25 @@ class WhiteService
         {
             Logger.Error($"压缩失败: {ex.Message}");
         }
+    }
+
+    public void WhiteClick(object sender, RoutedEventArgs e)
+    {
+        Task.Run(White);
+    }
+
+    private async Task White() { 
+        // 获取用户输入的源文件夹路径
+        string sourceFolder = Config.Get("ImagePath");
+        if (!Directory.Exists(sourceFolder))
+        {
+            Logger.Error($"白框失败，源文件夹 {sourceFolder} 不存在");
+            return;
+        }
+        _btn.Content = "压缩中..";
+        await Zip(sourceFolder);
         _btn.Content = "白框中..";
-        Task.Run(async () =>
+        await Task.Run(async () =>
         {
             //List<Task> task = new List<Task>();
             try
@@ -64,7 +74,7 @@ class WhiteService
                 int sum = 0;
                 List<string> allFileLarge = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories).ToList();
                 // 按每 30 个元素批量处理
-                int num = int.Parse(Config.GetDefault("WhiteThreadNum", "20"));
+                int num = int.Parse(Config.GetDefault("WhiteThreadNum", "10"));
                 foreach (var allFiles in allFileLarge.Batch(num))
                 {
                     List<Task> tasks = new List<Task>();
@@ -75,7 +85,6 @@ class WhiteService
                     }
                     await Task.WhenAll(tasks);
                 }
-               
                 Logger.Info($"本地白框,处理完毕,共 {allFileLarge.Count()}个商品 {sum} 张图片");
             }
             catch (UnauthorizedAccessException)
@@ -89,8 +98,8 @@ class WhiteService
             //foreach(Task t in task) {
             //    t.Wait();
             //}
-            _btn.Content = "本地白框";
         });
+        _btn.Content = "本地白框";
     }
 
     private void WhiteTest(object sender, RoutedEventArgs e)

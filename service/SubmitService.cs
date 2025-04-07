@@ -51,7 +51,7 @@ class SubmitService
         File.Delete(Config.Get("CompareFilePath"));
         int maxCount = GetMaxCount(mainWindow);
 
-        DialogService.Instance.startListening();
+        //DialogService.Instance.startListening();
         Task.Run(() => {
             try
             {
@@ -61,7 +61,7 @@ class SubmitService
                 Logger.Error($"终止处理: {e.Message}");
             }
 
-            DialogService.Instance.stopListening();
+           // DialogService.Instance.stopListening();
         });
     }
 
@@ -87,24 +87,22 @@ class SubmitService
     {
         int errorTime = 1;
         HashSet<string> processed = new HashSet<string>();
+        AutomationElement targetButton = targetWindow.FindFirst(TreeScope.Descendants,
+       new PropertyCondition(AutomationElement.AutomationIdProperty, Config.Get("SubmitBtn")));
+
+        if (targetButton == null)
+        {
+            Logger.Info("未找到提交按钮。");
+            return;
+        }
+        Rect rect = targetButton.Current.BoundingRectangle;
+        // 计算元素的中心位置
+        int x = (int)(rect.Left + rect.Width / 2);
+        int y = (int)(rect.Top + rect.Height / 2);
         for (int i = 1; i <= maxCount; i++)
         {
             try
             {
-                AutomationElement targetButton = targetWindow.FindFirst(TreeScope.Descendants,
-            new PropertyCondition(AutomationElement.AutomationIdProperty, Config.Get("SubmitBtn")));
-
-                if (targetButton == null)
-                {
-                    Logger.Info("未找到提交按钮。");
-                    return;
-                }
-
-                Rect rect = targetButton.Current.BoundingRectangle;
-                // 计算元素的中心位置
-                int x = (int)(rect.Left + rect.Width / 2);
-                int y = (int)(rect.Top + rect.Height / 2);
-
                 if (!MainWindow.IsProcess())
                 {
                     // 如果标志为 false，终止处理
@@ -119,17 +117,23 @@ class SubmitService
                 int waitTime = int.Parse(Config.GetDefault("WaitTime", "600"));
                 AutomationElement id = Retry.RunAndTry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, Config.Get("ID")),
                     () => refresh(targetWindow), waitTime, 2000);
-                if (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
+                while (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
                 {
-                    Logger.Info($"第{i}个 id找不到跳过");
-                    continue;
-                }
 
-             
-                MouseSimulator.Move(x, y);
+                    refresh(targetWindow);
+                    Thread.Sleep(1000);
+                    Logger.Info($"第{i}个 id找不到刷新重试");
+                    id = Retry.RunAndTry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, Config.Get("ID")),
+                        () => refresh(targetWindow), waitTime, 2000);
+                    errorTime++;
+                    if (errorTime > 10) {
+                        break;
+                    }
+                }
                 Logger.Info($"第{i}个: {id.Current.Name}");
                 processed.Add(id.Current.Name);
                 i = processed.Count;
+                MouseSimulator.Move(x, y);
                 AutomationElement submit = targetWindow.FindFirst(TreeScope.Descendants,
                  new PropertyCondition(AutomationElement.NameProperty, "确认"));
                 if (submit != null)
@@ -138,10 +142,18 @@ class SubmitService
                     Thread.Sleep(300);
                 }
                 MouseSimulator.MouseClick(true, x, y);
-             
-                Thread.Sleep(300);
+                Thread.Sleep(200);
+                StockInput.PressY();
+                Thread.Sleep(100);
+                StockInput.PressEnter();
                 Thread.Sleep(int.Parse(Config.Get("WaitMillSeconds")));
                 errorTime = 0;
+
+                if (processed.Count >= maxCount)
+                {
+                    Logger.Info($"已处理 {processed.Count} 个商品，达到最大处理数量 终止。");
+                    break;
+                }
             }
             catch (Exception ex)
             {
@@ -167,8 +179,8 @@ class SubmitService
         Match match = Regex.Match(total.Current.Name, @"\d+");
         if (match.Success)
         {
-            int totalNum = int.Parse(match.Value);
-            return totalNum + (totalNum / 60)+2;
+            return int.Parse(match.Value);
+         
         }
         return 0;
     }
