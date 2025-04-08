@@ -1,4 +1,5 @@
 ﻿using stock_tool.common;
+using System.Runtime.InteropServices;
 using System.Windows.Automation;
 
 namespace stock_tool.utils
@@ -328,8 +329,27 @@ namespace stock_tool.utils
                     Logger.Info($"激活窗体时发生错误: {ex.Message}");
                 }
             }
+
+            try
+            {
+                // 获取窗口句柄
+                object nativeWindowHandle = windowElement.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                IntPtr hWnd = (IntPtr)nativeWindowHandle;
+                Console.WriteLine($"窗口句柄: {hWnd}");
+
+                // 这里可以根据句柄进行其他操作，例如激活窗口
+                SetForegroundWindow(hWnd);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"获取窗口句柄时出错: {ex.Message}");
+            }
+
             return false;
         }
 
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
     }
 }

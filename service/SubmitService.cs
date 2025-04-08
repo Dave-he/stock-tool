@@ -100,7 +100,7 @@ class SubmitService
         int x = (int)(rect.Left + rect.Width / 2);
         int y = (int)(rect.Top + rect.Height / 2);
 
-string max =Config.Get("maxNum")
+        string max = Config.Get("maxNum");
         for (int i = 1; i <= maxCount; i++)
         {
             try
