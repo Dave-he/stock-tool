@@ -335,14 +335,12 @@ namespace stock_tool.utils
                 // 获取窗口句柄
                 object nativeWindowHandle = windowElement.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
                 IntPtr hWnd = (IntPtr)nativeWindowHandle;
-                Console.WriteLine($"窗口句柄: {hWnd}");
-
                 // 这里可以根据句柄进行其他操作，例如激活窗口
                 SetForegroundWindow(hWnd);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"获取窗口句柄时出错: {ex.Message}");
+                Logger.Error($"获取窗口句柄时出错: {ex.Message}");
             }
 
             return false;

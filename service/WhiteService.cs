@@ -26,8 +26,13 @@ class WhiteService
     }
 
     public Button Btn => _btn;
+    public void WhiteClick(object sender, RoutedEventArgs e)
+    {
+        White();
+    }
 
-    private async Task Zip(string sourceFolder) {
+    private async Task Zip(string sourceFolder)
+    {
         try
         {
             string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
@@ -39,8 +44,11 @@ class WhiteService
                 string zipFileName = Path.Combine(parentPath, $"image_{timestamp}.zip");
 
                 Logger.Info($"开始压缩..{sourceFolder}");
-                
-                ZipFile.CreateFromDirectory(sourceFolder, zipFileName);
+
+                await Task.Run(() =>
+                {
+                    ZipFile.CreateFromDirectory(sourceFolder, zipFileName);
+                } );
                 Logger.Info($"压缩成功: {zipFileName}");
             }
         }
@@ -50,10 +58,6 @@ class WhiteService
         }
     }
 
-    public void WhiteClick(object sender, RoutedEventArgs e)
-    {
-        Task.Run(White);
-    }
 
     private async Task White() { 
         // 获取用户输入的源文件夹路径
