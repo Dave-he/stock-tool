@@ -36,13 +36,7 @@ public partial class MainWindow : Window
         KeyboardHookHelper.SetHook();
         StockConfigService.Init(stockTextBox);
         ClearService.Init(ClearBtn);
-
-
-        //SaveBtn.Click += new SaveCheckService().SaveCheck;
         WhiteService.Init(WhiteBtn);
-        //StockService stockService = new StockService();
-        // StockBtn.Click += stockService.StockClick;
-        // StockTestBtn.Click += stockService.StockTest;
         DialogService.Init(DialogBtn);
         submitService = new SubmitService();
      
@@ -54,6 +48,12 @@ public partial class MainWindow : Window
         {
             StockGrid.Visibility = Visibility.Hidden;
         }
+        KillBtn.Click += Kill_Click;
+    }
+
+    private void Kill_Click(object sender, RoutedEventArgs e)
+    {
+        FileUtil.CloseProcessByName("ZYing");
     }
 
     private void SubmitBtn_Click(object sender, RoutedEventArgs e)

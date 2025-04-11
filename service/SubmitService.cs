@@ -67,6 +67,8 @@ class SubmitService
 
     private AutomationElement refresh(AutomationElement targetWindow)
     {
+        StockInput.PressEnter();
+        Thread.Sleep(100);
         AutomationElement refreshButton = targetWindow.FindFirst(TreeScope.Descendants,
             new PropertyCondition(AutomationElement.AutomationIdProperty, Config.Get("RefreshBtn")));
         if (refreshButton == null)
@@ -74,6 +76,7 @@ class SubmitService
             Logger.Info("未找到刷新按钮。");
             return null;
         }
+
         Rect rect = refreshButton.Current.BoundingRectangle;
         // 计算元素的中心位置
         int x = (int)(rect.Left + rect.Width / 2);

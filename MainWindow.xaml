@@ -31,18 +31,18 @@
        
             <!-- 横向排列的4个按钮 -->
             <StackPanel x:Name="SavePanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
-                <!--<Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="75"/>-->
+                <!--<Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="65"/>-->
                 <Label Content=" 按页保存 > 人工P图 > " Opacity="0.75"  Background="White"></Label>
-                <Button x:Name="WhiteBtn" Content="本地白框" Background="LightGreen" Width="75"/>
+                <Button x:Name="WhiteBtn" Content="本地白框" Background="LemonChiffon" Width="65"/>
                 <Label Content=" > " Opacity="0.75"    Background="White"></Label>
-                <Button x:Name="SubmitBtn" Content="开始提交"  Background="LightBlue" Width="75"  Click="SubmitBtn_Click"/>
-                <!--<Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="75"/>-->
+                <Button x:Name="SubmitBtn" Content="开始提交"  Background="LightGreen" Width="65"  Click="SubmitBtn_Click"/>
+                <!--<Button x:Name="StockBtn" Content="逐个库存"  Background="LightBlue" Width="65"/>-->
                 <Label Content=" > " Opacity="0.75"    Background="White"></Label>
-                <Button x:Name="ClearBtn" Content="清理image" Background="LightYellow" Width="75"/>
+                <Button x:Name="ClearBtn" Content="清理image" Background="LightCoral" Width="65"/>
                 <!--<Label Content=" > " Opacity="0.75"  Background="White"></Label>-->
 
                 <!-- <Label Content=">"></Label>-->
-                <!--<Button x:Name="WhiteBtnCopy" Content="全部库存" Background="LightPink" Width="75" Click="StockClick"/>-->
+                <!--<Button x:Name="WhiteBtnCopy" Content="全部库存" Background="LightPink" Width="65" Click="StockClick"/>-->
             </StackPanel>
         </Grid>
 
@@ -62,16 +62,20 @@
 
             <!-- 横向排列的4个按钮 -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top">
-                <Button x:Name="DialogBtn" Content="开始监听" Width="75" />
+
+                <Button x:Name="DialogBtn" Content="监听" Width="30" Visibility="Hidden"/>
+
                 <Label Content="  输入库存 >"  Opacity="0.75" Background="White"/>
                 <TextBox x:Name="stockTextBox" TextWrapping="Wrap" HorizontalAlignment="Center" Width="80" 
-                         TextAlignment="Center" VerticalContentAlignment ="Center"
-                         BorderBrush="Green" Margin="5,0,5,0"/>
-              
-                <Button x:Name="Empty" Content="确认" Width="40"/>
+                   TextAlignment="Center" VerticalContentAlignment ="Center"
+                   BorderBrush="Green" Margin="5,0,5,0"/>
+
+                <Button x:Name="Empty" Content="确认" Width="40"  Background="LemonChiffon" />
+           
                 <Label Content=">"  Opacity="0.75" Background="White"/>
-                <Button x:Name="SubmitBtn2" Content="库存提交"  Background="LightBlue"  Width="75" Click="SubmitBtn_Click" />
-    
+                <Button x:Name="SubmitBtn2" Content="库存提交"  Background="LightGreen"  Width="65" Click="SubmitBtn_Click" />
+                <Label Content=">"  Opacity="0.75" Background="White"/>
+                <Button x:Name="KillBtn" Content="关闭进程"  Background="LightCoral" Width="65"/>
             </StackPanel>
         </Grid>
             
