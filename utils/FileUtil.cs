@@ -126,4 +126,16 @@ class FileUtil
         
         return latestFolder;
     }
+
+    public static void Delete(string filePath)
+    {
+        try
+        {
+            File.Delete(filePath);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"删除文件 {filePath} 时出错: {ex.Message}");
+        }
+    }
 }

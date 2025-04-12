@@ -49,6 +49,15 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="service\SubmitService.cs-1" />
+    <Compile Include="service\SubmitService.cs2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="service\SubmitService.cs" />
+  </ItemGroup>
   
   <ItemGroup>
     <Compile Update="MainWindow.xaml.cs">

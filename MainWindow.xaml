@@ -63,7 +63,7 @@
             <!-- 横向排列的4个按钮 -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,80,20,0" VerticalAlignment="Top">
 
-                <Button x:Name="DialogBtn" Content="监听" Width="30" Visibility="Hidden"/>
+                <Button x:Name="DialogBtn" Content="监听" Width="30" Visibility="Visible"/>
 
                 <Label Content="  输入库存 >"  Opacity="0.75" Background="White"/>
                 <TextBox x:Name="stockTextBox" TextWrapping="Wrap" HorizontalAlignment="Center" Width="80" 

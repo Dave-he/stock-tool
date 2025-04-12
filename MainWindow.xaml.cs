@@ -4,7 +4,6 @@ using stock_tool.utils;
 using System.IO;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Input;
 
 namespace stock_tool;
 
@@ -37,7 +36,7 @@ public partial class MainWindow : Window
         StockConfigService.Init(stockTextBox);
         ClearService.Init(ClearBtn);
         WhiteService.Init(WhiteBtn);
-        DialogService.Init(DialogBtn);
+        DialogListener.Init(DialogBtn);
         submitService = new SubmitService();
      
         if (!Config.Enable("SaveEnable")) { 
@@ -68,7 +67,8 @@ public partial class MainWindow : Window
     protected override void OnClosed(System.EventArgs e)
     {
         _isProcessing = false;
-        DialogService.Instance.stopListening();
+        DialogListener.Instance?.Stop();
+        DialogService.Instance?.stopListening();
         base.OnClosed(e);
         // 卸载全局键盘钩子
         KeyboardHookHelper.UnHook();

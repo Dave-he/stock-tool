@@ -29,4 +29,14 @@ class Config
     public static string GetDefault(string key, string de) => Get(key) == null ? de : Get(key);
 
     public static bool Enable(string key) => Get(key) == "true";
+
+    public static int GetInt(string key, int defalut = 0)
+    {
+        string value = Get(key);
+        if (int.TryParse(value, out int result))
+        {
+            return result;
+        }
+        return defalut;
+    }
 }

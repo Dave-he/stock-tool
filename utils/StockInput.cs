@@ -50,9 +50,9 @@ public class StockInput
      static void PressKey(byte keyCode)
     {
         keybd_event(keyCode, 0, KEYEVENTF_KEYDOWN, 0);
-        Thread.Sleep(100);
+        Thread.Sleep(50);
         keybd_event(keyCode, 0, KEYEVENTF_KEYUP, 0);
-        Thread.Sleep(100);
+        Thread.Sleep(50);
     }
 
     // 将字符转换为虚拟键码

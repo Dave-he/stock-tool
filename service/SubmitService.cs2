@@ -13,7 +13,7 @@ using System.Windows.Automation;
 
 namespace stock_tool.service;
 
-class SubmitService
+class SubmitService2
 {
     // Windows API 函数声明
     [DllImport("user32.dll", SetLastError = true)]
@@ -46,12 +46,27 @@ class SubmitService
     [DllImport("user32.dll", SetLastError = true)]
     private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetModuleHandle(string lpModuleName);
+
     private const int SW_MAXIMIZE = 3;
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     private const uint MOUSEEVENTF_LEFTUP = 0x0004;
     private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const int WH_CALLWNDPROC = 4;
+    private const int WM_CREATE = 0x0001;
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT
@@ -62,6 +77,20 @@ class SubmitService
         public int Bottom;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CWPSTRUCT
+    {
+        public IntPtr lParam;
+        public IntPtr wParam;
+        public int message;
+        public IntPtr hwnd;
+    }
+
+    private IntPtr hookHandle;
+    private HookProc hookProc;
+
+    private static volatile string currentId = string.Empty;
+
     public void SubmitClick(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -69,6 +98,14 @@ class SubmitService
 
         try
         {
+            // 设置钩子监听错误提示框
+            hookProc = new HookProc(HookCallback);
+            hookHandle = SetWindowsHookEx(WH_CALLWNDPROC, hookProc, GetModuleHandle(null), 0);
+            if (hookHandle == IntPtr.Zero)
+            {
+                Logger.Error("设置钩子失败: " + Marshal.GetLastWin32Error());
+            }
+
             // 获取配置项
             string targetWindowTitle = GetConfigValue("TargetWindowTitle");
             string targetElementTitle = GetConfigValue("TargetElementTitle");
@@ -87,7 +124,7 @@ class SubmitService
             AutomationElement mainWindow = AutomationElement.FromHandle(mainWindowHandle);
 
             // 查找右边 pannel
-            AutomationElement targetWindow = FindElement(mainWindow, targetElementTitle);
+            AutomationElement targetWindow = AutomationSearchHelper.FindByName(mainWindow, targetElementTitle);
             if (targetWindow == null)
             {
                 Logger.Info($"找不到 【{targetElementTitle}】,请打开某商品");
@@ -97,7 +134,7 @@ class SubmitService
             // 删除临时文件
             string resultPath = GetConfigValue("ResultFilePath");
             string resultFile = resultPath + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss") + ".txt";
-            DeleteFile(GetConfigValue("CompareFilePath"));
+            FileUtil.Delete(GetConfigValue("CompareFilePath"));
 
             int maxCount = GetMaxCount(mainWindow);
 
@@ -112,6 +149,14 @@ class SubmitService
                 {
                     Logger.Error($"终止处理: {ex.Message}");
                 }
+                finally
+                {
+                    // 移除钩子
+                    if (hookHandle != IntPtr.Zero)
+                    {
+                        UnhookWindowsHookEx(hookHandle);
+                    }
+                }
             });
         }
         catch (Exception ex)
@@ -119,6 +164,67 @@ class SubmitService
             Logger.Error($"处理过程中出现错误: {ex.Message}");
         }
     }
+
+
+    private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0)
+        {
+            CWPSTRUCT cwp = (CWPSTRUCT)Marshal.PtrToStructure(lParam, typeof(CWPSTRUCT));
+            if (cwp.message == WM_CREATE)
+            {
+                try
+                {
+                    StringBuilder windowTitle = new StringBuilder(256);
+                    GetWindowText(cwp.hwnd, windowTitle, windowTitle.Capacity);
+
+                    StringBuilder windowClassName = new StringBuilder(256);
+                    GetClassName(cwp.hwnd, windowClassName, windowClassName.Capacity);
+
+                    // 这里可以添加更多判断条件，例如特定的类名等
+                    if (IsErrorMessageBox(windowTitle.ToString(), windowClassName.ToString()))
+                    {
+                        string windowContent = GetWindowContent(cwp.hwnd);
+                        Logger.Info($"{currentId} 检测到错误提示框 - 标题: {windowTitle}, 内容: {windowContent}");
+                        keybd_event(0x0D, 0, 0, 0); // 模拟按下 Enter 键
+                        Thread.Sleep(50);
+                        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Enter 键
+                    }
+
+                    if (windowTitle.ToString().Contains("确认")) {
+
+                        keybd_event(0x0D, 0, 0, 0); // 模拟按下 Enter 键
+                        Thread.Sleep(50);
+                        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Enter 键
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"钩子处理消息时出错: {ex.Message}");
+                }
+            }
+        }
+        return CallNextHookEx(hookHandle, nCode, wParam, lParam);
+    }
+
+    private bool IsErrorMessageBox(string title, string className)
+    {
+        // 可以根据实际情况修改判断逻辑
+        return title.Contains("错误") || title.Contains("异常") || className.Contains("Error");
+    }
+
+    private string GetWindowContent(IntPtr hWnd)
+    {
+        AutomationElement windowElement = AutomationElement.FromHandle(hWnd);
+        AutomationElement textElement = windowElement.FindFirst(TreeScope.Children, new PropertyCondition(AutomationElement.LocalizedControlTypeProperty, "文本"));
+        if (textElement != null)
+        {
+            return textElement.Current.Name;
+        }
+        return string.Empty;
+    }
+
+
 
     private string GetConfigValue(string key)
     {
@@ -137,26 +243,9 @@ class SubmitService
         Logger.Info("窗口已最大化。");
     }
 
-    private AutomationElement FindElement(AutomationElement rootElement, string elementTitle)
-    {
-        return rootElement.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, elementTitle));
-    }
-
-    private void DeleteFile(string filePath)
-    {
-        try
-        {
-            File.Delete(filePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"删除文件 {filePath} 时出错: {ex.Message}");
-        }
-    }
-
     private int GetMaxCount(AutomationElement mainWindow)
     {
-        AutomationElement total = FindElementById(mainWindow, "lblTotal");
+        AutomationElement total = AutomationSearchHelper.FindFirstElementById(mainWindow, "lblTotal");
         if (total != null)
         {
             string totalText = total.Current.Name;
@@ -169,17 +258,12 @@ class SubmitService
         return 0;
     }
 
-    private AutomationElement FindElementById(AutomationElement rootElement, string automationId)
-    {
-        return rootElement.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, automationId));
-    }
-
     private void Submit(int maxCount, AutomationElement targetWindow)
     {
         int errorTime = 1;
         HashSet<string> processed = new HashSet<string>();
 
-        AutomationElement targetButton = FindElementById(targetWindow, GetConfigValue("SubmitBtn"));
+        AutomationElement targetButton = AutomationSearchHelper.FindFirstElementById(targetWindow, GetConfigValue("SubmitBtn"));
         if (targetButton == null)
         {
             Logger.Info("未找到提交按钮。");
@@ -204,8 +288,8 @@ class SubmitService
                     MessageBox.Show($"已处理{max}个是否继续?");
                 }
 
-                int waitTime = Config.GetInt("WaitTime", 600);
-                AutomationElement id = Retry.RunAndTry(() => FindElementById(targetWindow, GetConfigValue("ID")),
+                int waitTime = GetConfigIntValue("WaitTime", 600);
+                AutomationElement id = Retry.RunAndTry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, GetConfigValue("ID")),
                     () => Refresh(targetWindow), waitTime, 2000);
 
                 while (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
@@ -213,7 +297,7 @@ class SubmitService
                     Refresh(targetWindow);
                     Thread.Sleep(1000);
                     Logger.Info($"第{i}个 id找不到刷新重试");
-                    id = Retry.RunAndTry(() => FindElementById(targetWindow, GetConfigValue("ID")),
+                    id = Retry.RunAndTry(() => AutomationSearchHelper.FindFirstElementById(targetWindow, GetConfigValue("ID")),
                         () => Refresh(targetWindow), waitTime, 2000);
                     errorTime++;
                     if (errorTime > 10)
@@ -224,20 +308,37 @@ class SubmitService
 
                 if (id != null)
                 {
-                    Logger.Info($"第{i}个: {id.Current.Name}");
+                    currentId = id.Current.Name;
+                    Logger.Info($"第{i}个: {currentId}");
                     processed.Add(id.Current.Name);
                     i = processed.Count;
 
-                    int x = (int)buttonCenter.X;
-                    int y = (int)buttonCenter.Y;
-                    MouseSimulator.Move(x,y);
-                    MouseSimulator.Click(x, y);
-                    Thread.Sleep(100);
-                    StockInput.PressY();
-                    StockInput.PressEnter();
-                    StockInput.PressEnter();
+                    SetCursorPos((int)buttonCenter.X, (int)buttonCenter.Y);
+                    mouse_event(MOUSEEVENTF_LEFTDOWN, (int)buttonCenter.X, (int)buttonCenter.Y, 0, 0);
+                    mouse_event(MOUSEEVENTF_LEFTUP, (int)buttonCenter.X, (int)buttonCenter.Y, 0, 0);
 
-                    Thread.Sleep(Config.GetInt("WaitMillSeconds"));
+                    //AutomationElement submit = AutomationSearchHelper.FindByName(targetWindow, "确认");
+                    //if (submit != null)
+                    //{
+                    //    keybd_event(0x0D, 0, 0, 0); // 模拟按下 Enter 键
+                    //    Thread.Sleep(300);
+                    //    keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Enter 键
+                    //}
+
+                    //SetCursorPos((int)buttonCenter.X, (int)buttonCenter.Y);
+                    //mouse_event(MOUSEEVENTF_LEFTDOWN, (int)buttonCenter.X, (int)buttonCenter.Y, 0, 0);
+                    //mouse_event(MOUSEEVENTF_LEFTUP, (int)buttonCenter.X, (int)buttonCenter.Y, 0, 0);
+
+
+                    //keybd_event(0x59, 0, 0, 0); // 模拟按下 Y 键
+                    //Thread.Sleep(100);
+                    //keybd_event(0x59, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Y 键
+
+                    //keybd_event(0x0D, 0, 0, 0); // 模拟按下 Enter 键
+                    //Thread.Sleep(GetConfigIntValue("WaitMillSeconds"));
+                    //keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Enter 键
+
+                    Thread.Sleep(GetConfigIntValue("WaitMillSeconds"));
                     errorTime = 0;
                 }
 
@@ -266,7 +367,7 @@ class SubmitService
         Thread.Sleep(100);
         keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Enter 键
 
-        AutomationElement refreshButton = FindElementById(targetWindow, GetConfigValue("RefreshBtn"));
+        AutomationElement refreshButton = AutomationSearchHelper.FindFirstElementById(targetWindow, GetConfigValue("RefreshBtn"));
         if (refreshButton == null)
         {
             Logger.Info("未找到刷新按钮。");
@@ -284,6 +385,16 @@ class SubmitService
     {
         System.Windows.Rect rect = element.Current.BoundingRectangle;
         return new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+    }
+
+    private int GetConfigIntValue(string key, int defaultValue = 0)
+    {
+        string value = Config.GetDefault(key, defaultValue.ToString());
+        if (int.TryParse(value, out int result))
+        {
+            return result;
+        }
+        return defaultValue;
     }
 
     private bool IsValidId(AutomationElement element)

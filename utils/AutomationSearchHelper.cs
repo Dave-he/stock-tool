@@ -349,5 +349,10 @@ namespace stock_tool.utils
 
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        public static AutomationElement FindByName(AutomationElement element, string name)
+        {
+            return element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name));
+        }
     }
 }

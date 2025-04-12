@@ -23,8 +23,7 @@ class DialogService
     private bool isReversed = false;
     private Button btn;
 
-    public static DialogService Instance => _instance ??
-        throw new InvalidOperationException("DialogService not initialized. Call Init() first.");
+    public static DialogService Instance => _instance;
 
     internal static void Init(Button dialogBtn)
     {
