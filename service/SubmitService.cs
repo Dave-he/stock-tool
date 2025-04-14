@@ -81,11 +81,12 @@ class SubmitService
                 return;
             }
 
-            ActivateAndMaximizeWindow(mainWindowHandle);
+            SetForegroundWindow(mainWindowHandle);
+            //ActivateAndMaximizeWindow(mainWindowHandle);
 
             // 将窗口句柄转换为 AutomationElement
             AutomationElement mainWindow = AutomationElement.FromHandle(mainWindowHandle);
-
+            AutomationSearchHelper.MaximizeWindow(mainWindow);
             // 查找右边 pannel
             AutomationElement targetWindow = FindElement(mainWindow, targetElementTitle);
             if (targetWindow == null)
@@ -133,8 +134,8 @@ class SubmitService
     private void ActivateAndMaximizeWindow(IntPtr hWnd)
     {
         SetForegroundWindow(hWnd);
-        ShowWindow(hWnd, SW_MAXIMIZE);
-        Logger.Info("窗口已最大化。");
+        //ShowWindow(hWnd, SW_MAXIMIZE);
+        //Logger.Info("窗口已最大化。");
     }
 
     private AutomationElement FindElement(AutomationElement rootElement, string elementTitle)
@@ -185,8 +186,19 @@ class SubmitService
             Logger.Info("未找到提交按钮。");
             return;
         }
+      
 
         Point buttonCenter = GetElementCenter(targetButton);
+
+        int x = (int)buttonCenter.X;
+        int y = (int)buttonCenter.Y;
+        MouseSimulator.Move(x, y);
+        MouseSimulator.Click(x, y);
+        Thread.Sleep(100);
+        StockInput.PressY();
+        StockInput.PressEnter();
+        //StockInput.PressEnter();
+
         string max = GetConfigValue("maxNum");
 
         for (int i = 1; i <= maxCount; i++)
@@ -228,8 +240,6 @@ class SubmitService
                     processed.Add(id.Current.Name);
                     i = processed.Count;
 
-                    int x = (int)buttonCenter.X;
-                    int y = (int)buttonCenter.Y;
                     MouseSimulator.Move(x,y);
                     MouseSimulator.Click(x, y);
                     Thread.Sleep(100);
@@ -237,15 +247,18 @@ class SubmitService
                     StockInput.PressEnter();
                     StockInput.PressEnter();
 
+
+                    if (processed.Count >= maxCount)
+                    {
+                        Logger.Info($"已处理 {processed.Count} 个商品，达到最大处理数量 终止。");
+                        break;
+                    }
                     Thread.Sleep(Config.GetInt("WaitMillSeconds"));
                     errorTime = 0;
+                   
                 }
 
-                if (processed.Count >= maxCount)
-                {
-                    Logger.Info($"已处理 {processed.Count} 个商品，达到最大处理数量 终止。");
-                    break;
-                }
+                
             }
             catch (Exception ex)
             {

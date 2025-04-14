@@ -233,7 +233,22 @@ namespace stock_tool.utils
             return parent.FindFirst(TreeScope.Descendants, condition);
         }
 
-
+        public static void MaximizeWindow(AutomationElement targetWindow)
+        {
+            if (targetWindow.TryGetCurrentPattern(WindowPattern.Pattern, out object windowPatternObject))
+            {
+                WindowPattern windowPattern = (WindowPattern)windowPatternObject;
+                if (windowPattern.Current.CanMaximize)
+                {
+                    windowPattern.SetWindowVisualState(WindowVisualState.Maximized);
+                    Logger.Info("窗口已最大化。");
+                }
+                else
+                {
+                    Logger.Info("窗口不支持最大化操作。");
+                }
+            }
+        }
 
         public static AutomationElement FindFirstElementByName(AutomationElement parent, string name)
         {

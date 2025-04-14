@@ -37,7 +37,7 @@ class FileUtil
         }
     }
 
-    public static void ZipDir(string sourceFolder)
+    public static async Task ZipDir(string sourceFolder)
     {
         // 获取用户输入的源文件夹路径
         string timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");

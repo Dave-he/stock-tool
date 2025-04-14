@@ -36,12 +36,12 @@ class ClearService
         try
         {
             MessageBoxResult res = MessageBox.Show("是否关闭ZYing?");
-            if (res.Equals(MessageBoxResult.Yes))
+            if (res.Equals(MessageBoxResult.OK))
             {
                 await FileUtil.CloseProcessByName("ZYing");
             }
-
-            await FileUtil.DeleteDir(Config.Get("ImagePath"));
+     
+            await FileUtil.ZipDir(Config.Get("ImagePath"));
             await FileUtil.DeleteDir(Config.Get("ImagePath"));
             await FileUtil.DeleteDir(Config.Get("Cache"));
             await FileUtil.DeleteSubDir(Config.Get("SaveCmpPath"));
