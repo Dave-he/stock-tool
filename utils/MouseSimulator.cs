@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿
+using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Automation;
 
 namespace stock_tool.utils;
@@ -22,6 +24,13 @@ public static class MouseSimulator
 
     private const uint MOUSEEVENTF_WHEEL = 0x0800;
     private const int WHEEL_DELTA = 300;
+
+
+    public static void Click(Point point)
+    {
+        Click((int) point.X, (int)point.Y);
+    }
+
     /// <summary>
     /// 模拟鼠标左键点击指定坐标
     /// </summary>
@@ -30,6 +39,7 @@ public static class MouseSimulator
     public static void Click(int x, int y)
     {
         SetCursorPos(x, y);
+        Thread.Sleep(10);
         mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
         Thread.Sleep(100);
     }
@@ -69,6 +79,13 @@ public static class MouseSimulator
         mouse_event(MOUSEEVENTF_RIGHTUP, x, y, 0, 0);
         Thread.Sleep(100);
     }
+
+    public static void Move(Point point)
+    {
+       Move((int)point.X, (int)point.Y);
+    }
+
+
 
     public static void Move(int x, int y) {
         SetCursorPos(x, y);

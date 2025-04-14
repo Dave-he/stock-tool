@@ -35,17 +35,27 @@ class ClearService
         _btn.Content = "清理中";
         try
         {
-            MessageBoxResult res = MessageBox.Show("是否关闭ZYing?");
-            if (res.Equals(MessageBoxResult.OK))
+           
+            MessageBoxResult res = MessageBox.Show("是否关闭ZYing?", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
             {
                 await FileUtil.CloseProcessByName("ZYing");
             }
-     
-            await FileUtil.ZipDir(Config.Get("ImagePath"));
-            await FileUtil.DeleteDir(Config.Get("ImagePath"));
-            await FileUtil.DeleteDir(Config.Get("Cache"));
-            await FileUtil.DeleteSubDir(Config.Get("SaveCmpPath"));
 
+
+            MessageBoxResult res2 = MessageBox.Show("是否清理图片?", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res2 == MessageBoxResult.Yes)
+            {
+                await FileUtil.ZipDir(Config.Get("ImagePath"));
+                await FileUtil.DeleteDir(Config.Get("ImagePath"));
+                await FileUtil.DeleteSubDir(Config.Get("SaveCmpPath"));
+            }
+
+            MessageBoxResult res3 = MessageBox.Show("是否清理缓存?", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res3 == MessageBoxResult.Yes)
+            {
+                await FileUtil.DeleteDir(Config.Get("Cache"));
+            }
             Logger.Info($"全部清理成功！");
         }
         catch (Exception ex)

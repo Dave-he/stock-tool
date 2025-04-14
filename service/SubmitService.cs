@@ -1,11 +1,7 @@
 ﻿using stock_tool.common;
 using stock_tool.utils;
-using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Text.RegularExpressions;
 using System.IO;
@@ -15,52 +11,6 @@ namespace stock_tool.service;
 
 class SubmitService
 {
-    // Windows API 函数声明
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetCursorPos(int x, int y);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, int dwExtraInfo);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
-
-    private const int SW_MAXIMIZE = 3;
-    private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
-    private const uint MOUSEEVENTF_LEFTUP = 0x0004;
-    private const uint KEYEVENTF_KEYUP = 0x0002;
-
-    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RECT
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
 
     public void SubmitClick(object sender, RoutedEventArgs e)
     {
@@ -73,16 +23,12 @@ class SubmitService
             string targetWindowTitle = GetConfigValue("TargetWindowTitle");
             string targetElementTitle = GetConfigValue("TargetElementTitle");
 
-            // 查找目标窗口
-            IntPtr mainWindowHandle = FindWindow(null, targetWindowTitle);
+            IntPtr mainWindowHandle = WindowApi.FindAndActivateWindow(targetWindowTitle);
             if (mainWindowHandle == IntPtr.Zero)
             {
-                Logger.Info($"找不到【{targetWindowTitle}】，请运行程序");
+                Logger.Info($"找不到窗口: {targetWindowTitle}");
                 return;
             }
-
-            SetForegroundWindow(mainWindowHandle);
-            //ActivateAndMaximizeWindow(mainWindowHandle);
 
             // 将窗口句柄转换为 AutomationElement
             AutomationElement mainWindow = AutomationElement.FromHandle(mainWindowHandle);
@@ -95,10 +41,8 @@ class SubmitService
                 return;
             }
 
-            // 删除临时文件
-            string resultPath = GetConfigValue("ResultFilePath");
-            string resultFile = resultPath + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss") + ".txt";
-            DeleteFile(GetConfigValue("CompareFilePath"));
+        
+            FileUtil.Delete(GetConfigValue("CompareFilePath"));
 
             int maxCount = GetMaxCount(mainWindow);
 
@@ -131,28 +75,9 @@ class SubmitService
         return value;
     }
 
-    private void ActivateAndMaximizeWindow(IntPtr hWnd)
-    {
-        SetForegroundWindow(hWnd);
-        //ShowWindow(hWnd, SW_MAXIMIZE);
-        //Logger.Info("窗口已最大化。");
-    }
-
     private AutomationElement FindElement(AutomationElement rootElement, string elementTitle)
     {
         return rootElement.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, elementTitle));
-    }
-
-    private void DeleteFile(string filePath)
-    {
-        try
-        {
-            File.Delete(filePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"删除文件 {filePath} 时出错: {ex.Message}");
-        }
     }
 
     private int GetMaxCount(AutomationElement mainWindow)
@@ -186,18 +111,18 @@ class SubmitService
             Logger.Info("未找到提交按钮。");
             return;
         }
-      
 
+        // 删除临时文件
+        string resultPath = GetConfigValue("ResultFilePath");
+        string resultFile = resultPath + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss") + ".txt";
         Point buttonCenter = GetElementCenter(targetButton);
 
         int x = (int)buttonCenter.X;
         int y = (int)buttonCenter.Y;
-        MouseSimulator.Move(x, y);
         MouseSimulator.Click(x, y);
         Thread.Sleep(100);
         StockInput.PressY();
         StockInput.PressEnter();
-        //StockInput.PressEnter();
 
         string max = GetConfigValue("maxNum");
 
@@ -213,7 +138,11 @@ class SubmitService
 
                 if (max != null && i > 1 && i % int.Parse(max) == 1)
                 {
-                    MessageBox.Show($"已处理{max}个是否继续?");
+                    MessageBoxResult res = MessageBox.Show("已处理{max}个是否继续?", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (res == MessageBoxResult.No)
+                    {
+                        return;
+                    }
                 }
 
                 int waitTime = Config.GetInt("WaitTime", 600);
@@ -240,10 +169,8 @@ class SubmitService
                     processed.Add(id.Current.Name);
                     i = processed.Count;
 
-                    MouseSimulator.Move(x,y);
                     MouseSimulator.Click(x, y);
                     Thread.Sleep(100);
-                    StockInput.PressY();
                     StockInput.PressEnter();
                     StockInput.PressEnter();
 
@@ -271,14 +198,44 @@ class SubmitService
                 }
             }
         }
+
+
+        try
+        {
+            string compare = Config.Get("CompareFilePath");
+            List<string> needProcess = !File.Exists(compare) ? new List<string>() : File.ReadAllLines(compare).Distinct().ToList();
+            List<string> notProcess = new List<string>();
+            foreach (string line in needProcess)
+            {
+
+                if (processed.Contains(line))
+                {
+                    //File.AppendLines(resultFile, line);
+                }
+                else
+                {
+                    notProcess.Add(line);
+                }
+            }
+
+            if (notProcess.Count > 0)
+            {
+                File.WriteAllLines(resultFile, notProcess);
+                int success = maxCount == 0 ? 1 : maxCount - notProcess.Count;
+                Logger.Info($"所有{maxCount},成功:{success} 未处理:{notProcess.Count}, 请查看{resultFile}");
+            }
+            else
+            {
+
+                Logger.Info($"全部处理成功 {maxCount}");
+            }
+        }
+        catch { }
     }
 
     private AutomationElement Refresh(AutomationElement targetWindow)
     {
-        keybd_event(0x0D, 0, 0, 0); // 模拟按下 Enter 键
-        Thread.Sleep(100);
-        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0); // 模拟释放 Enter 键
-
+        StockInput.PressEnter();
         AutomationElement refreshButton = FindElementById(targetWindow, GetConfigValue("RefreshBtn"));
         if (refreshButton == null)
         {
@@ -287,20 +244,13 @@ class SubmitService
         }
 
         Point buttonCenter = GetElementCenter(refreshButton);
-        SetCursorPos((int)buttonCenter.X, (int)buttonCenter.Y);
-        mouse_event(MOUSEEVENTF_LEFTDOWN, (int)buttonCenter.X, (int)buttonCenter.Y, 0, 0);
-        mouse_event(MOUSEEVENTF_LEFTUP, (int)buttonCenter.X, (int)buttonCenter.Y, 0, 0);
+        MouseSimulator.Click(buttonCenter);
         return null;
     }
 
     private Point GetElementCenter(AutomationElement element)
     {
-        System.Windows.Rect rect = element.Current.BoundingRectangle;
+        Rect rect = element.Current.BoundingRectangle;
         return new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
-    }
-
-    private bool IsValidId(AutomationElement element)
-    {
-        return Regex.IsMatch(element.Current.Name, @"^-?\d+$");
     }
 }

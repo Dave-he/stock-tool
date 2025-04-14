@@ -6,6 +6,13 @@ namespace stock_tool.utils;
 class WindowApi
 {
 
+    // Windows API 函数声明
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
     // 导入 Windows API 函数：卸载钩子
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -18,10 +25,6 @@ class WindowApi
     // 导入 Windows API 函数：获取模块句柄
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern nint GetModuleHandle(string lpModuleName);
-
-    // 导入 Windows API 函数
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern nint FindWindow(string lpClassName, string lpWindowName);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern nint FindWindowEx(nint hwndParent, nint hwndChildAfter, string lpszClass, string lpszWindow);
@@ -46,6 +49,19 @@ class WindowApi
     const uint WM_LBUTTONDOWN = 0x0201;
     const uint WM_LBUTTONUP = 0x0202;
 
+
+    public static IntPtr FindAndActivateWindow(string title) {
+
+        // 查找目标窗口
+        IntPtr mainWindowHandle = FindWindow(null, title);
+        if (mainWindowHandle == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        SetForegroundWindow(mainWindowHandle);
+        return mainWindowHandle;
+    }
 
 
     public static nint GetControl(string windowTitle, string controlWindowName) {
