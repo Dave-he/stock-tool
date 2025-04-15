@@ -233,7 +233,8 @@ namespace stock_tool.utils
             return parent.FindFirst(TreeScope.Descendants, condition);
         }
 
-        public static void MaximizeWindow(AutomationElement targetWindow)
+        public static void MaximizeWindow
+            (AutomationElement targetWindow)
         {
             if (targetWindow.TryGetCurrentPattern(WindowPattern.Pattern, out object windowPatternObject))
             {

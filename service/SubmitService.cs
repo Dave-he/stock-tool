@@ -172,6 +172,8 @@ class SubmitService
                     MouseSimulator.Click(x, y);
                     Thread.Sleep(100);
                     StockInput.PressEnter();
+
+                    StockInput.PressEnter();
                     StockInput.PressEnter();
 
 

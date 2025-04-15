@@ -116,7 +116,8 @@ class DialogListener
 
                 StringBuilder windowText = new StringBuilder(256);
                 GetWindowText(hWnd, windowText, windowText.Capacity);
-                if (windowText.ToString().Contains("确认")) {
+                if (windowText.ToString().Contains("确认"))
+                {
                     return true;
                 }
 
