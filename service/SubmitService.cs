@@ -11,7 +11,7 @@ namespace stock_tool.service;
 
 class SubmitService
 {
-
+    private volatile bool processd = false;
     public void SubmitClick(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -51,11 +51,12 @@ class SubmitService
             {
                 try
                 {
+                    processd = true;
                     Submit(maxCount, targetWindow);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"终止处理: {ex.Message}");
+                    MessageBox.Show($"终止处理: {ex.Message}");
                 }
             });
         }
@@ -117,21 +118,18 @@ class SubmitService
         string resultFile = resultPath + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss") + ".txt";
         Point buttonCenter = GetElementCenter(targetButton);
 
+        DialogListener.Instance.Start();
         int x = (int)buttonCenter.X;
         int y = (int)buttonCenter.Y;
         MouseSimulator.Click(x, y);
-        Thread.Sleep(100);
-        StockInput.PressY();
-        StockInput.PressEnter();
-
         string max = GetConfigValue("maxNum");
-
         for (int i = 1; i <= maxCount; i++)
         {
             try
             {
-                if (!MainWindow.IsProcess())
+                if (!MainWindow.IsProcess() || !processd)
                 {
+                    Stop();
                     // 如果标志为 false，终止处理
                     return;
                 }
@@ -141,40 +139,30 @@ class SubmitService
                     MessageBoxResult res = MessageBox.Show("已处理{max}个是否继续?", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (res == MessageBoxResult.No)
                     {
+                        Stop();
                         return;
                     }
                 }
 
-                int waitTime = Config.GetInt("WaitTime", 600);
-                AutomationElement id = Retry.RunAndTry(() => FindElementById(targetWindow, GetConfigValue("ID")),
-                    () => Refresh(targetWindow), waitTime, 2000);
-
-                while (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
+                int waitTime = Config.GetInt("WaitTime", 1000);
+                AutomationElement id = FindElementById(targetWindow, GetConfigValue("ID"));
+                if (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
                 {
+                    Thread.Sleep(2000);
                     Refresh(targetWindow);
-                    Thread.Sleep(1000);
                     Logger.Info($"第{i}个 id找不到刷新重试");
-                    id = Retry.RunAndTry(() => FindElementById(targetWindow, GetConfigValue("ID")),
-                        () => Refresh(targetWindow), waitTime, 2000);
-                    errorTime++;
-                    if (errorTime > 10)
-                    {
-                        break;
-                    }
                 }
-
-                if (id != null)
-                {
+                else { 
                     Logger.Info($"第{i}个: {id.Current.Name}");
                     processed.Add(id.Current.Name);
                     i = processed.Count;
-
                     MouseSimulator.Click(x, y);
-                    Thread.Sleep(100);
+                    // Thread.Sleep(100);
                     StockInput.PressEnter();
 
-                    StockInput.PressEnter();
-                    StockInput.PressEnter();
+                    //StockInput.PressEnter();
+                    //StockInput.PressEnter();
+
 
 
                     if (processed.Count >= maxCount)
@@ -182,12 +170,11 @@ class SubmitService
                         Logger.Info($"已处理 {processed.Count} 个商品，达到最大处理数量 终止。");
                         break;
                     }
-                    Thread.Sleep(Config.GetInt("WaitMillSeconds"));
-                    errorTime = 0;
-                   
-                }
 
-                
+                    errorTime = 0;
+                }
+                Thread.Sleep(Config.GetInt("WaitMillSeconds"));
+
             }
             catch (Exception ex)
             {
@@ -231,8 +218,10 @@ class SubmitService
 
                 Logger.Info($"全部处理成功 {maxCount}");
             }
+            Stop();
         }
         catch { }
+
     }
 
     private AutomationElement Refresh(AutomationElement targetWindow)
@@ -254,5 +243,11 @@ class SubmitService
     {
         Rect rect = element.Current.BoundingRectangle;
         return new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+    }
+
+    internal void Stop()
+    {
+        processd = false;
+        DialogListener.Instance.Stop();
     }
 }

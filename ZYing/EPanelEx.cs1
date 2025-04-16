@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using ZYing.Data;
 using ZYing.Interface;
+using ZYing.Tracking;
 using ZYing.Web;
 using static ZYing.Transfer;
 
@@ -1064,25 +1065,31 @@ public class EPanelEx : EPanelBase
 				Task.Run(() => GetAllSku(fileName));
 				return;
 			}
-		}
-        foreach (EControl con in base.Parent.Controls[0].Controls)
-        {
-            if (con is EGallery eg && eg.Name.Equals("grid"))
+         
+        }
+
+		if (ids.IsNullOrEmpty()) {
+            foreach (EControl con in base.Parent.Controls[0].Controls)
             {
-                ids = eg.Cells.Select(c => c.Name).ToList();
+                if (con is EGallery eg && eg.Name.Equals("grid"))
+                {
+                    ids = eg.Cells.Select(c => c.Name).ToList();
+                }
             }
         }
-       
-		saveAll((Detail.Sale)Page, ids);
+        saveAll(Page, ids);
         //ids.SplitToBatch(10).ToList().ForEach(c=> saveAll((Detail.Sale)Page, c));
     }
 
-	private async Task saveAll(Detail.Sale sale, IReadOnlyList<string> ids) {
+    
+
+    private async Task saveAll(EControl sale, IReadOnlyList<string> ids) {
         int pallelNum = GetFuncConfig("savePallelNum");
         object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
 		if (zClient == null)
 		{
-			MessageBox.Show("Collect ZClient is Null");
+			MessageBox.Show("Collect ZClient" +
+				" is Null");
 			return;
 		}
 
@@ -1244,7 +1251,7 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-	private async Task ChangePage(EGallery eGallery, ETurn eTurn) {
+	private void ChangePage(EGallery eGallery, ETurn eTurn) {
 		
         int currentNum = 0;
 		string pageName = Page.GetInnerName().IsNullOrEmpty() ? Page.Name : Page.GetInnerName();
@@ -1347,134 +1354,6 @@ public class EPanelEx : EPanelBase
 				OnRightClick();
 				return;
 			}
-
-
-            if (false &&
-				enableMenu(base.Parent.Name) && e.Button == MouseButtons.Left)
-            {
-
-                //库存
-                try
-                {
-                    base.Invoke(async () =>
-                    {
-                        ETurn eTurn = null;
-                        EGallery eGallery = null;
-                        foreach (EControl con in base.Parent.Controls[0].Controls)
-                        {
-                            if (con is EGallery eg && eg.Name.Equals("grid"))
-                            {
-                                eGallery = eg;
-                            }
-                            if (con is ETurn a && a.Name.Equals("PTurn"))
-                            {
-                                eTurn = a;
-                            }
-                        }
-
-						bool saveEnable = judgeReact(location, 180);
-						bool whiteEnable = judgeReact(location, 140);
-						bool stockEnable = judgeReact(location, 100);
-
-
-                        //Server.Instance.Load(this).Start();
-                        //MessageBox.Show("服务已启动 port:[32025]");
-                        EStockEdit table = null;
-                        EButton button = null;
-                        EText all = null;
-                        EPic pic = null;
-                        if (saveEnable || whiteEnable || stockEnable)
-						{
-
-							//Server.Instance.Load(this);
-                            foreach (EControl con in base.Controls[0].Controls[0].Controls)
-                            {
-                                if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
-                                {
-                                    table = eg;
-                                }
-                                if (con is EButton btn1 && btn1.Name.Equals("btnSubmit1"))
-                                {
-                                    button = btn1;
-                                }
-                                if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
-                                {
-                                    repeat.Checked = true;
-                                }
-								if (con is EPic epic && epic.Name.Equals("epic")) { 
-									pic = epic;
-								}
-                                if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
-                                {
-
-                                    foreach (EControl con1 in sl.Controls)
-                                    {
-
-                                        if (con1 is ETextUnit tu && tu.Name.Equals("txtNum"))
-                                        {
-
-                                            foreach (EControl con2 in con1.Controls)
-                                            {
-
-                                                if (con2 is EText tu2)
-                                                {
-                                                    all = tu2;
-                                                    break;
-                                                }
-                                            }
-                                            break;
-                                        }
-
-                                    }
-                                }
-                            }
-
-						}
-
-                 
-						if (saveEnable && pic != null)
-						{
-							List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
-                            //int p = eTurn.Page + 1;
-                            //eTurn.Page = p > eTurn.TotalPages ? 1 : p;
-                            //eTurn.MyChange();
-                            await saveAll((Detail.Sale)Page, ids);
-                           
-                          
-                        }
-
-                        if (whiteEnable && pic != null)
-                        {
-                            List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
-                            //int p = eTurn.Page + 1;
-                            //eTurn.Page = p > eTurn.TotalPages ? 1 : p;
-                            //eTurn.MyChange();
-                            await whiteAll((Detail.Sale)Page, ids);
-                         
-                        }
-
-						if (stockEnable && table != null)
-						{
-							submit();
-                            //if (base.Pages.Count > 2)
-                            //{
-                            //    int idx = base.Pages.Count - 1;
-                            //    EControl eControl = this[idx];
-                            //    if (eControl != null)
-                            //    {
-                            //        Remove(eControl);
-                            //    }
-                            //}
-                        }
-					});
-				}
-                catch (Exception ex)
-                {
-                    File.AppendAllLines("stock_tmp_error.txt", [ex.ToString()]);
-                }
-
-            }
-
 
             switch (_sys.GetCommand())
 			{
@@ -1616,7 +1495,7 @@ public class EPanelEx : EPanelBase
 				submitBtn.Location = new Point(point.X - 100, point.Y + 2);
 				submitBtn.Click += (s, e) =>
                 {
-                    submit();
+                    Task.Run(()=> submit());
                 };
 			}
             if (refreshBtn == null)
@@ -1739,9 +1618,12 @@ public class EPanelEx : EPanelBase
 
     private void refreshClick(object sender, EventArgs e)
     {
-			Page?.Load();
+		submitStatus = 0;
+		Page?.Load();
     }
 
+	private volatile int submitStatus = 0; //0-初始，1-提交过，2-检查通过
+	private volatile int submiting = 0;
 
     private async Task submit() {
         if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
@@ -1750,18 +1632,17 @@ public class EPanelEx : EPanelBase
         }
 
         string idName = null;
-        while (idName == null || !Regex.IsMatch(idName, @"^-?\d+$"))
+        foreach (EControl con in Page.Controls)
         {
-            foreach (EControl con in Page.Controls)
+            if (con.Name.Equals("lblID"))
             {
-                if (con.Name.Equals("lblID"))
-                {
-                    idName = Page.GetInnerName();
-                    break;
-                }
-
+                idName = Page.GetInnerName();
+                break;
             }
-            Thread.Sleep(1000);
+        }
+        if (idName == null || !Regex.IsMatch(idName, @"^-?\d+$"))
+        {
+			return;
         }
 
         ETurn eTurn = null;
@@ -1777,7 +1658,20 @@ public class EPanelEx : EPanelBase
                 eTurn = a;
             }
         }
-       
+
+		if (eGallery == null)
+		{
+			return;
+		}
+
+		if (submitStatus == 2) {
+			eGallery.Invoke(() => ChangePage(eGallery, eTurn));
+			submitStatus = 0;
+            submiting = 0;
+            return;
+        }
+
+
 
         EStockEdit tableTmp = null;
         EButton buttonTmp = null;
@@ -1833,73 +1727,125 @@ public class EPanelEx : EPanelBase
             }
         }
         int size = 0;
-        if (picTmp != null && enableFunc("SaveEnable"))
-        {
-            foreach (EControl con in picTmp.Controls)
-            {
-                if (con is EImage eImage && eImage.Url.Length > 0)
-                {
-                    eImage.MyReplace(picTmp.Prefix);
-                    size++;
-                }
-            }
-        }
 
-        int num = 0;
-        if (enableFunc("StockEnable") && File.Exists("stock.json"))
-        {
 
-            JsonArray config = JsonArray.Create(File.ReadAllText("stock.json"));
-            bool modify = true;
-            foreach (ETRow row in tableTmp.Rows)
+
+
+        if (submitStatus == 1)
+        {
+            if (picTmp != null && enableFunc("SaveEnable"))
             {
-                foreach (ETCell cell in row.Cells)
+                foreach (EControl con in picTmp.Controls)
                 {
-                    foreach (JsonElement item in config)
+                    if (con is EImage eImage && eImage.Url.Length > 0)
                     {
-                        if (cell.Name == item.GetString("key"))
+                        if (OSS.IsFile(eImage.Url))
                         {
-                            num++;
-                            cell.Text = getRandomNum(item.GetString("value"));
-                            modify = false;
+                            MessageBox.Show($"图片 {eImage.Url} 为本地状态，请检查！", "错误");
+                            return;
+                        }
+                        if (OSS.IsRemote(eImage.Url))
+                        {
+                          
+							MessageBox.Show($"图片 {eImage.Url} 为远程状态，请重新提交！", "错误");
+                            return;
                         }
                     }
                 }
             }
+            submitStatus = 2;
+			submiting = 0;
+            MessageBox.Show($"检查通过 {idName}，图片【{size}】个", "信息");
+		
+            return;
+        }
 
-            if (modify && allTmp != null)
+
+        if (submitStatus == 0) {
+			if (submiting == 1)
             {
-                foreach (JsonElement item in config)
-                {
-                    if (!item.GetString("key").Equals("num"))
-                    {
-                        continue;
-                    }
-                    num++;
-                    allTmp.Text = getRandomNum(item.GetString("value"));
-                }
+                return;
+            }
+            bool imgFunc = false;
+			if (picTmp != null && enableFunc("SaveEnable"))
+			{
+				foreach (EControl con in picTmp.Controls)
+				{
+					if (con is EImage eImage && eImage.Url.Length > 0)
+					{
+						eImage.MyReplace(picTmp.Prefix);
+						size++;
+					}
+				}
+                imgFunc = true;
+
             }
 
-        }
-        // 获取私有方法的 MethodInfo 对象
-        MethodInfo methodInfo = Page.GetType().GetMethod("btnSubmit_Click", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        if (methodInfo != null)
-        {
-            MessageBox.Show($"提交 {idName}，图片【{size}】，变体【{num}】 ", "信息");
-            // 调用私有方法
-            methodInfo.Invoke(Page, new object[] { buttonTmp == null ? button2Tmp : buttonTmp, EventArgs.Empty });
+
+
+
+			int num = 0;
+			if (enableFunc("StockEnable") && File.Exists("stock.json"))
+			{
+
+				JsonArray config = JsonArray.Create(File.ReadAllText("stock.json"));
+				bool modify = true;
+				foreach (ETRow row in tableTmp.Rows)
+				{
+					foreach (ETCell cell in row.Cells)
+					{
+						foreach (JsonElement item in config)
+						{
+							if (cell.Name == item.GetString("key"))
+							{
+								num++;
+								cell.Text = getRandomNum(item.GetString("value"));
+								modify = false;
+							}
+						}
+					}
+				}
+
+				if (modify && allTmp != null)
+				{
+					foreach (JsonElement item in config)
+					{
+						if (!item.GetString("key").Equals("num"))
+						{
+							continue;
+						}
+						num++;
+						allTmp.Text = getRandomNum(item.GetString("value"));
+					}
+				}
+
+			}
+			// 获取私有方法的 MethodInfo 对象
+			MethodInfo methodInfo = Page.GetType().GetMethod("btnSubmit_Click", BindingFlags.NonPublic | BindingFlags.Instance);
+            submitStatus = imgFunc ? 1 : 2;
+            submiting = 1;
+
+
+            if (methodInfo != null)
+			{
+
+              
+
+
+
+                //MessageBox.Show($"提交 {idName}，图片【{size}】，变体【{num}】 ", "信息");
+                // 调用私有方法
+                methodInfo.Invoke(Page, new object[] { buttonTmp == null ? button2Tmp : buttonTmp, EventArgs.Empty });
+			}
+
+			return;
         }
-        Thread.Sleep(1000);
-    
+
         //if (button2 != null)
         //{
         //    Page.Invoke(async () => button2.MyClick());
         //}
 
-        if (eGallery != null)
-        {
-            eGallery.Invoke(()=> ChangePage(eGallery, eTurn));
-        }
     }
 }

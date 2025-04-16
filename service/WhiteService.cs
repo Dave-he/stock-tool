@@ -70,26 +70,19 @@ class WhiteService
         _btn.Content = "压缩中..";
         await Zip(sourceFolder);
         _btn.Content = "白框中..";
-        await Task.Run(async () =>
+        await Task.Run(() =>
         {
             //List<Task> task = new List<Task>();
             try
             {
-                int sum = 0;
+                int skus = Directory.EnumerateDirectories(sourceFolder).Count();
                 List<string> allFileLarge = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories).ToList();
-                // 按每 30 个元素批量处理
-                int num = int.Parse(Config.GetDefault("WhiteThreadNum", "10"));
-                foreach (var allFiles in allFileLarge.Batch(num))
+                var parallelOptions = new ParallelOptions
                 {
-                    List<Task> tasks = new List<Task>();
-                    foreach (var file in allFiles)
-                    {
-                        tasks.Add(Task.Run(() => ProcessFile(file)));
-                        sum++;
-                    }
-                    await Task.WhenAll(tasks);
-                }
-                Logger.Info($"本地白框,处理完毕,共 {allFileLarge.Count()}个商品 {sum} 张图片");
+                    MaxDegreeOfParallelism = Config.GetInt("MaxThread", 100)
+                };
+                Parallel.ForEach(allFileLarge, parallelOptions, file => ProcessFile(file));
+                Logger.Info($"本地白框,处理完毕,共 {skus}个商品 {allFileLarge.Count()} 张图片");
             }
             catch (UnauthorizedAccessException)
             {
@@ -99,9 +92,6 @@ class WhiteService
             {
                 MessageBox.Show("指定的文件夹未找到。");
             }
-            //foreach(Task t in task) {
-            //    t.Wait();
-            //}
         });
         _btn.Content = "本地白框";
     }

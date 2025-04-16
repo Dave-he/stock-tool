@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         ClearService.Init(ClearBtn);
         WhiteService.Init(WhiteBtn);
         DialogListener.Init(DialogBtn);
+        DialogBtn.Visibility = Visibility.Hidden;
         submitService = new SubmitService();
      
         if (!Config.Enable("SaveEnable")) { 
@@ -55,11 +56,24 @@ public partial class MainWindow : Window
         FileUtil.CloseProcessByName("ZYing");
     }
 
+    bool isSubmit = false; 
+
+
     private void SubmitBtn_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        submitService.SubmitClick(sender, e);
-
+        if (isSubmit)
+        {
+           submitService.Stop();
+           SubmitBtn.Content = "图片提交";
+           SubmitBtn2.Content = "库存提交";
+        }
+        else {
+            submitService.SubmitClick(sender, e);
+            SubmitBtn.Content = "结束提交";
+            SubmitBtn2.Content = "结束提交";
+        }
+        isSubmit = !isSubmit;
     }
 
     internal static bool IsProcess() { return _isProcessing; }

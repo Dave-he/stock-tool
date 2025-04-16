@@ -21,15 +21,6 @@ class DialogListener
     [DllImport("user32.dll")]
     private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
-
-    [DllImport("user32.dll")]
-    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool IsWindowVisible(IntPtr hWnd);
 
     // 定义回调函数委托
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -55,6 +46,7 @@ class DialogListener
         _btn = button;
         _btn.Click += StartStopButton_Click;
         UpdateButtonState();
+        mode = Config.Enable("DialogDebugMode");
     }
 
 
@@ -67,28 +59,30 @@ class DialogListener
 
     public void Stop() {
         isListening = false;
+        if (listenerThread != null && listenerThread.IsAlive)
+        {
+            listenerThread.Join();
+        }
     }
+
+    public void Start()
+    {
+        isListening = true;
+        listenerThread = new Thread(ListenForDialogs);
+        listenerThread.Start();
+    }
+
 
     private void StartStopButton_Click(object sender, RoutedEventArgs e)
     {
         if (isListening)
         {
-            // 停止监听
-            isListening = false;
-            if (listenerThread != null && listenerThread.IsAlive)
-            {
-                listenerThread.Join();
-            }
-         
+            Stop();
         }
         else
         {
-            // 开始监听
-            isListening = true;
-            listenerThread = new Thread(ListenForDialogs);
-            listenerThread.Start();
+            Start();
         }
-
         UpdateButtonState();
     }
 
@@ -101,36 +95,48 @@ class DialogListener
         }
     }
 
+    private bool mode = false;
+
     private static PropertyCondition textCondition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text);
 
     private bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam)
     {
-        if (IsWindowVisible(hWnd))
+        if (WindowApi.IsWindowVisible(hWnd))
         {
            StringBuilder className = new StringBuilder(256);
-            GetClassName(hWnd, className, className.Capacity);
+            WindowApi.GetClassName(hWnd, className, className.Capacity);
 
             // 检查是否为对话框类名
             if (className.ToString() == "#32770")
             {
 
-                StringBuilder windowText = new StringBuilder(256);
-                GetWindowText(hWnd, windowText, windowText.Capacity);
-                if (windowText.ToString().Contains("确认"))
-                {
-                    return true;
-                }
+                //StringBuilder windowText = new StringBuilder(256);
+                //GetWindowText(hWnd, windowText, windowText.Capacity);
+                //if (windowText.ToString().Contains("确认"))
+                //{
+                //    return true;
+                //}
 
                 // 使用 UIAutomation 获取对话框内容
                 AutomationElement dialogElement = AutomationElement.FromHandle(hWnd);
-                    AutomationElementCollection textElements = dialogElement.FindAll(TreeScope.Children, textCondition);
+                AutomationElementCollection textElements = dialogElement.FindAll(TreeScope.Children, textCondition);
 
-                    foreach (AutomationElement textElement in textElements)
-                    {
-                        Logger.Debug($"对话框: {windowText.ToString()}  {textElement.Current.Name}");
-                      
-                    }
+                foreach (AutomationElement textElement in textElements)
+                {
+                    Logger.Debug($"对话框: {textElement.Current.Name}");
+
+                }
+                WindowApi.SetForegroundWindow(hWnd);
+                if (mode)
+                {
+                    StockInput.PressN();
+                    WindowApi.ClickBtn(hWnd, "关闭");
+                }
+                else {
+                    WindowApi.ClickBtn(hWnd, "确认");
+                    WindowApi.ClickBtn(hWnd, "是");
                     StockInput.PressEnter();
+                }
             }
         }
         return true;

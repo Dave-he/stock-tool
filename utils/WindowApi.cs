@@ -8,10 +8,10 @@ class WindowApi
 
     // Windows API 函数声明
     [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+    public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
     [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     // 导入 Windows API 函数：卸载钩子
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
@@ -43,6 +43,15 @@ class WindowApi
 
     [DllImport("user32.dll")]
     public static extern nint SendMessage(nint hWnd, uint Msg, nint wParam, nint lParam);
+
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+  
+    [DllImport("user32.dll")]
+    public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
 
 
     // 鼠标点击消息常量
@@ -106,6 +115,41 @@ class WindowApi
         SendMessage(hControl, WM_LBUTTONUP, 0, lParam);
         // 稍微延迟一下，确保操作生效
         Thread.Sleep(100);
+    }
+    private const uint WM_CLICK = 0x00F5;
+
+
+
+    private static bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam)
+    {
+        if (IsWindowVisible(hWnd))
+        {
+            StringBuilder className = new StringBuilder(256);
+            GetClassName(hWnd, className, className.Capacity);
+
+            // 检查是否为对话框类名
+            if (className.ToString() == "#32770")
+            {
+                // 激活对话框
+                SetForegroundWindow(hWnd);
+
+                ClickBtn(hWnd, "提交");
+                ClickBtn(hWnd, "关闭");
+                
+            }
+        }
+        return true;
+    }
+
+    public static void ClickBtn(IntPtr hWnd, string name) {
+        // 查找“提交”按钮，假设按钮文本为“提交”
+        IntPtr submitButton = FindWindowEx(hWnd, IntPtr.Zero, "Button", name);
+        if (submitButton != IntPtr.Zero)
+        {
+            // 模拟点击“提交”按钮
+            SendMessage(submitButton, WM_CLICK, IntPtr.Zero, IntPtr.Zero);
+        }
+
     }
 
 }
