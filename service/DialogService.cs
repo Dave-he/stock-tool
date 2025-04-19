@@ -39,6 +39,7 @@ class DialogService
 
     internal void Click(object sender, RoutedEventArgs e)
     {
+  
         isReversed = isReversed ? stopListening(): startListening();  
         UpdateButtonState();
     }

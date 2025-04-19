@@ -41,6 +41,9 @@ class DialogListener
         _instance ??= new DialogListener(dialogBtn);
     }
 
+    public static bool needCheck = false;
+
+
     public DialogListener(Button button)
     {
         _btn = button;
@@ -123,8 +126,11 @@ class DialogListener
 
                 foreach (AutomationElement textElement in textElements)
                 {
-                    Logger.Debug($"对话框: {textElement.Current.Name}");
-
+                    string text = textElement.Current.Name;
+                    Logger.Debug($"对话框: {text}");
+                    if (text.EndsWith("读取下一个")) {
+                        needCheck = true;
+                    }
                 }
                 WindowApi.SetForegroundWindow(hWnd);
                 if (mode)

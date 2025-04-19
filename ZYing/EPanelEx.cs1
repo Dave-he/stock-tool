@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using ZYing.Data;
 using ZYing.Interface;
 using ZYing.Tracking;
@@ -1047,7 +1048,7 @@ public class EPanelEx : EPanelBase
         List<string> ids = new List<string>();
 		if (File.Exists(fileName))
 		{
-			ids = File.ReadAllLines(fileName).ToList();
+			ids = File.ReadAllLines(fileName).ToList().FindAll((id) => !id.IsNullOrEmpty() && !id.StartsWith("[Page"));
 			File.Delete(fileName);
 			DialogResult res1 = MessageBox.Show($"读取到{ids.Count}个是否开始", "确认",
 				MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -1088,8 +1089,7 @@ public class EPanelEx : EPanelBase
         object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
 		if (zClient == null)
 		{
-			MessageBox.Show("Collect ZClient" +
-				" is Null");
+			MessageBox.Show("Collect ZClient is Null");
 			return;
 		}
 
@@ -1111,9 +1111,10 @@ public class EPanelEx : EPanelBase
         List<Task> tasks = new List<Task>();
 		string errorMsg = string.Empty;
 		int count = 0;
+		int total = 0;
         foreach (string id in ids)
-		{
-			if (id.Length == 0)
+        {
+			if (id.Length == 0 || id.StartsWith("[Page") || !Regex.IsMatch(id, @"^-?\d+$"))
 			{
 				continue;
 			}
@@ -1136,7 +1137,7 @@ public class EPanelEx : EPanelBase
 			//JsonObject.Create(File.ReadAllText("C:\\ZYing\\log\\2025-03-30 14-02-47\\text-383831467.json"))
 			// .GetArray("root");
 			jsonObject.GetArray("root");
-		
+			total++;
             foreach (JsonObject node in root)
 			{
 				HashSet<string> list = node.GetArray("sale_pic").Select(c => c.ToString()).ToHashSet();
@@ -1182,13 +1183,13 @@ public class EPanelEx : EPanelBase
         saveBtn.Text = "保存";
         if (errorMsg.IsNullOrEmpty())
 		{
-            MessageBox.Show($"全部保存成功！\n 本页已处理{ids.Count},共{count} 张图片","信息");
+            MessageBox.Show($"全部保存成功！\n 共处理{total}个商品,共{count} 张图片","信息");
         }
         else 
 		{
             MessageBox.Show($"部分未保存请检查！\n " +
 				errorMsg+
-				$"共处理{ids.Count},共{count} 张图片,\n请点击下一页进行保存.", "错误");
+				$"共处理{total}个商品,共{count} 张图片,\n请点击下一页进行保存.", "错误");
         }
     
 	}
@@ -1251,12 +1252,82 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-	private void ChangePage(EGallery eGallery, ETurn eTurn) {
-		
+	private void ChangePageByFile(EGallery eGallery, ETurn eTurn, string id)
+	{
+		bool mode = enableFunc("backSubmitEnable");
+		if (!File.Exists(SUBMIT))
+		{
+			ChangePage(eGallery, eTurn, id);
+			return;
+		}
+
+		string pageLine = null;
+
+		string[] lines = File.ReadAllLines(SUBMIT);
+		string nextId = null;
+		for (int i = 0; i < lines.Length; i++)
+		{
+			string line = lines[i];
+			if (line.StartsWith("[Page"))
+			{
+				pageLine = line;
+			}
+			if (line == id)
+			{
+				nextId = i + 1 == lines.Length ? lines[0] : lines[i + 1];
+				break;
+			}
+		}
+		int page = pageLine.IsNullOrEmpty() ? 1: int.Parse(pageLine.Split("]")[0].Replace("[Page:", ""));
+		if (eTurn.Page != page) { 
+			eTurn.Page = page;
+			eTurn.MyChange();
+			eGallery.Invalidate();
+			Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+            
+            foreach (EControl con in base.Parent.Controls[0].Controls)
+            {
+                if (con is EGallery eg && eg.Name.Equals("grid"))
+                {
+                    eGallery = eg;
+                }
+                if (con is ETurn a && a.Name.Equals("PTurn"))
+                {
+                    eTurn = a;
+                }
+            }
+        }
+
+		foreach (ICell cell in eGallery.Cells) { 
+			if (cell.Name == nextId)
+            {
+                int n = eGallery.Cells.IndexOf(cell);
+                if (mode)
+				{
+					
+					eGallery.SetCurrent(n);
+					EControl con = base.OnCreate(eGallery, nextId);
+                    Page = con;
+                    con.Load();
+                }
+				else {
+                    eGallery.CurrentCell = eGallery.Cells[n];
+                }
+                break;
+            }
+        }
+    }
+
+	private void ChangePage(EGallery eGallery, ETurn eTurn, string idName) {
+		bool mode = enableFunc("backSubmitEnable");
         int currentNum = 0;
-		string pageName = Page.GetInnerName().IsNullOrEmpty() ? Page.Name : Page.GetInnerName();
-		string currentName = eGallery.CurrentCell != null ? eGallery.CurrentCell.Name : pageName;
-        foreach (ICell cell in eGallery.Cells)
+		//string pageName = Page.GetInnerName().IsNullOrEmpty() ? Page.Name : Page.GetInnerName();
+		string currentName = idName;
+        //eGallery.CurrentCell != null ? eGallery.CurrentCell.Name : idName;
+
+        List<ICell> cells = eGallery.Cells.ToList();
+        //cells.Sort((a, b)=> a.Name.CompareTo(b.Name));
+        foreach (ICell cell in cells)
         {
             if (cell.Name == currentName)
             {
@@ -1265,35 +1336,49 @@ public class EPanelEx : EPanelBase
             currentNum++;
         }
         currentNum++;
-		if (currentNum == eGallery.Cells.Count)
+	
+        if (currentNum == cells.Count)
 		{
 			int p = eTurn.Page + 1;
 			eTurn.Page = p > eTurn.TotalPages ? 1 : p;
 		
 			if (eTurn.TotalPages == 1)
 			{
-				//eGallery.CurrentCell = eGallery.Cells[0];
-                eGallery.SetCurrent(0);
-				EControl con = base.OnCreate(eGallery, eGallery.Cells[0].Name);
-				Page = con;
-				con.Load();
+				if (mode)
+                {
+                    eGallery.SetCurrent(0);
+					EControl con = base.OnCreate(eGallery, cells[0].Name);
+					Page = con;
+					con.Load();
+
+				}
+                else {
+                    eGallery.CurrentCell = cells[0];
+                }
             }
 			else {
                 eTurn.MyChange();
+				eGallery.Invalidate();
+                Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                // GC.Collect();
             }
-           
-            //eGallery.Invalidate();
-            //GC.Collect();
         }
 		else
 		{
-			//GC.Collect();
-			int n = currentNum > eGallery.Cells.Count ? 0 : currentNum;
-			//eGallery.CurrentCell = eGallery.Cells[n];
-			eGallery.SetCurrent(n);
-            EControl con = base.OnCreate(eGallery, eGallery.Cells[n].Name);
-            Page = con;
-            con.Load();
+            int n = currentNum > cells.Count ? 0 : currentNum;
+            if (mode)
+			{
+				eGallery.SetCurrent(n);
+				EControl con = base.OnCreate(eGallery, cells[n].Name);
+				Page = con;
+				con.Load();
+			}
+            else
+			{
+				
+				eGallery.CurrentCell = cells[n];
+			}
+
             //this.CreatePage(eGallery, eGallery.Cells[n].Name);
 
         }
@@ -1585,10 +1670,11 @@ public class EPanelEx : EPanelBase
 	private void GetAllSku(string fileName) {
 		int totalPage = 2;
 		long totalCount = 0;
-        for (int i = 1; i <= totalPage; i++)
-        {
+		int lastPage = -1;
 
-            ETurn eTurn = null;
+		for (int i = 1; i <= totalPage; i++)
+		{
+			ETurn eTurn = null;
 			EGallery eGallery = null;
 			foreach (EControl con in base.Parent.Controls[0].Controls)
 			{
@@ -1599,17 +1685,29 @@ public class EPanelEx : EPanelBase
 				if (con is ETurn a && a.Name.Equals("PTurn"))
 				{
 					eTurn = a;
+					if (lastPage == -1)
+					{
+						lastPage = eTurn.Page;
+					}
+
 				}
 			}
-            eTurn.Page = i;
-            eTurn.MyChange();
-            eGallery.Invalidate();
-			int time = GetFuncConfig("pageWaitMs", 1000);
-            Thread.Sleep(time);
-            totalPage = eTurn.TotalPages;
+			eTurn.Page = i;
+			eTurn.MyChange();
+			eGallery.Invalidate();
+			//int time = GetFuncConfig("pageWaitMs", 1000);
+			Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+			totalPage = eTurn.TotalPages;
 			IEnumerable<string> ids = eGallery.Cells.Select(c => c.Name);
-            totalCount+=ids.Count();
-            File.AppendAllLines(fileName, ids);
+			totalCount += ids.Count();
+			File.AppendAllLines(fileName, [$"[Page:{i}][Size:{ids.Count()}][TotalPage:{totalPage}]"]);
+			File.AppendAllLines(fileName, ids);
+			if (i == totalPage)
+			{
+                eTurn.Page = lastPage;
+                eTurn.MyChange();
+                eGallery.Invalidate();
+            }
 		}
         MessageBox.Show($"已获取{totalPage}页,共{totalCount},请点击{fileName}查看结果");
     }
@@ -1623,7 +1721,10 @@ public class EPanelEx : EPanelBase
     }
 
 	private volatile int submitStatus = 0; //0-初始，1-提交过，2-检查通过
-	private volatile int submiting = 0;
+    private volatile int pageStatus = 0; //0-初始，1-切页
+    private volatile int submiting = 0; //提交中
+
+	private const string SUBMIT = "submit.txt";
 
     private async Task submit() {
         if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
@@ -1631,21 +1732,58 @@ public class EPanelEx : EPanelBase
             return;
         }
 
-        string idName = null;
-        foreach (EControl con in Page.Controls)
-        {
-            if (con.Name.Equals("lblID"))
-            {
-                idName = Page.GetInnerName();
-                break;
-            }
-        }
-        if (idName == null || !Regex.IsMatch(idName, @"^-?\d+$"))
-        {
-			return;
+        if (!File.Exists(SUBMIT) && enableFunc("FileSubmit"))
+		{
+            GetAllSku(SUBMIT);
+            return;
         }
 
-        ETurn eTurn = null;
+		if (pageStatus == 1) {
+			submiting = 0;
+			pageStatus = 0;
+			return;
+		}
+
+		int retryLimit = GetFuncConfig("retryLimit", 10);
+        int checkRetryLimit = GetFuncConfig("checkRetryLimit", 3);
+
+        string idName = null;
+        string loaderOK = null;
+        
+		foreach (EControl con in Page.Controls)
+		{
+            if (con is ELabel label && label.Name.Equals("lblID") && !label.Text.IsNullOrEmpty())
+			{
+				idName = label.Text;
+            }
+
+            if (con is ELoader loader && loader.Name.Equals("loaderOK"))
+            {
+                loaderOK = loader.Text;
+            }
+		}
+
+		if (idName.IsNullOrEmpty() || !Regex.IsMatch(idName, @"^-?\d+$")) {
+			return;
+		}
+
+        if (submiting >= 1 && loaderOK.IsNullOrEmpty())
+		{
+            if (submiting > retryLimit)
+            {
+                submitStatus = 0;
+                submiting = 0;
+            }
+            else
+            {
+                submiting++;
+            }
+            MessageBox.Show($"任在处理中请稍等");
+            return;
+		}
+	
+
+		ETurn eTurn = null;
         EGallery eGallery = null;
         foreach (EControl con in base.Parent.Controls[0].Controls)
         {
@@ -1664,14 +1802,18 @@ public class EPanelEx : EPanelBase
 			return;
 		}
 
-		if (submitStatus == 2) {
-			eGallery.Invoke(() => ChangePage(eGallery, eTurn));
-			submitStatus = 0;
-            submiting = 0;
-            return;
+		//if (submitStatus >= 2) {
+		//	eGallery.Invoke(() => ChangePage(eGallery, eTurn));
+		//	submitStatus = 0;
+  //          submiting = 0;
+  //          return;
+  //      }
+		if(submiting>=1 && !loaderOK.IsNullOrEmpty()) {
+            eGallery.Invoke(() => ChangePageByFile(eGallery, eTurn, idName));
+            pageStatus = 1;
+            MessageBox.Show($" {idName} {loaderOK} 读取下一个");
+			return;
         }
-
-
 
         EStockEdit tableTmp = null;
         EButton buttonTmp = null;
@@ -1728,10 +1870,7 @@ public class EPanelEx : EPanelBase
         }
         int size = 0;
 
-
-
-
-        if (submitStatus == 1)
+        if (submitStatus >= 1)
         {
             if (picTmp != null && enableFunc("SaveEnable"))
             {
@@ -1739,15 +1878,26 @@ public class EPanelEx : EPanelBase
                 {
                     if (con is EImage eImage && eImage.Url.Length > 0)
                     {
+						size++;
                         if (OSS.IsFile(eImage.Url))
                         {
-                            MessageBox.Show($"图片 {eImage.Url} 为本地状态，请检查！", "错误");
+							submiting++;
+							if (submiting > checkRetryLimit) {
+                                submitStatus = 0;
+                                submiting = 0;
+                            }
+                            
+                            MessageBox.Show($"图片 {eImage.Url} 为本地状态，重新提交", "错误");
                             return;
                         }
                         if (OSS.IsRemote(eImage.Url))
                         {
-                          
-							MessageBox.Show($"图片 {eImage.Url} 为远程状态，请重新提交！", "错误");
+                            if (submiting > checkRetryLimit)
+                            {
+                                submitStatus = 0;
+                                submiting = 0;
+                            }
+                            MessageBox.Show($"图片 {eImage.Url} 为远程状态，重新提交！", "错误");
                             return;
                         }
                     }
@@ -1762,10 +1912,16 @@ public class EPanelEx : EPanelBase
 
 
         if (submitStatus == 0) {
-			if (submiting == 1)
+			if (submiting >= 1)
             {
+                submiting++;
+                if (submiting > retryLimit) {
+					submiting = 0;
+				}
+				
                 return;
             }
+
             bool imgFunc = false;
 			if (picTmp != null && enableFunc("SaveEnable"))
 			{
@@ -1780,9 +1936,6 @@ public class EPanelEx : EPanelBase
                 imgFunc = true;
 
             }
-
-
-
 
 
 			int num = 0;
@@ -1821,19 +1974,18 @@ public class EPanelEx : EPanelBase
 				}
 
 			}
+
+			if (!enableFunc("FileSubmit")) {
+				File.AppendAllLines("stock_tmp.txt", [idName]);
+			}
+
 			// 获取私有方法的 MethodInfo 对象
 			MethodInfo methodInfo = Page.GetType().GetMethod("btnSubmit_Click", BindingFlags.NonPublic | BindingFlags.Instance);
-            submitStatus = imgFunc ? 1 : 2;
+            //submitStatus = imgFunc ? 1 : 2;
             submiting = 1;
-
 
             if (methodInfo != null)
 			{
-
-              
-
-
-
                 //MessageBox.Show($"提交 {idName}，图片【{size}】，变体【{num}】 ", "信息");
                 // 调用私有方法
                 methodInfo.Invoke(Page, new object[] { buttonTmp == null ? button2Tmp : buttonTmp, EventArgs.Empty });

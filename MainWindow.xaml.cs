@@ -4,6 +4,7 @@ using stock_tool.utils;
 using System.IO;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Controls;
 
 namespace stock_tool;
 
@@ -20,7 +21,7 @@ public partial class MainWindow : Window
     // 用于控制按钮点击处理是否继续的标志
     private static volatile bool _isProcessing = true;
     private SubmitService submitService;
-  
+    private BoswerListener boswerListener;
 
     public MainWindow()
     {
@@ -39,7 +40,7 @@ public partial class MainWindow : Window
         DialogListener.Init(DialogBtn);
         DialogBtn.Visibility = Visibility.Hidden;
         submitService = new SubmitService();
-     
+        submitService.StopEvent += SubmitStop;
         if (!Config.Enable("SaveEnable")) { 
             SaveGrid.Visibility = Visibility.Hidden;
         }
@@ -49,6 +50,7 @@ public partial class MainWindow : Window
             StockGrid.Visibility = Visibility.Hidden;
         }
         KillBtn.Click += Kill_Click;
+        boswerListener = new BoswerListener(BoswerBtn);
     }
 
     private void Kill_Click(object sender, RoutedEventArgs e)
@@ -56,22 +58,28 @@ public partial class MainWindow : Window
         FileUtil.CloseProcessByName("ZYing");
     }
 
-    bool isSubmit = false; 
+    bool isSubmit = false;
 
+    private void SubmitStop(object? sender, EventArgs e)
+    {
+        SubmitBtn.Content = "图片提交";
+        SubmitBtn2.Content = "库存提交";
+    }
 
     private void SubmitBtn_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
         if (isSubmit)
         {
-           submitService.Stop();
-           SubmitBtn.Content = "图片提交";
-           SubmitBtn2.Content = "库存提交";
+            SubmitBtn.Content = "图片提交";
+            SubmitBtn2.Content = "库存提交";
+            submitService.Stop();
         }
         else {
-            submitService.SubmitClick(sender, e);
+
             SubmitBtn.Content = "结束提交";
             SubmitBtn2.Content = "结束提交";
+            submitService.SubmitClick(sender, e);
         }
         isSubmit = !isSubmit;
     }
@@ -86,6 +94,9 @@ public partial class MainWindow : Window
         base.OnClosed(e);
         // 卸载全局键盘钩子
         KeyboardHookHelper.UnHook();
+        if (boswerListener != null) { 
+            boswerListener.Stop();
+        }
     }
 
 

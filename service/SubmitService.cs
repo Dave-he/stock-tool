@@ -11,6 +11,8 @@ namespace stock_tool.service;
 
 class SubmitService
 {
+    public event EventHandler StopEvent;
+
     private volatile bool processd = false;
     public void SubmitClick(object sender, RoutedEventArgs e)
     {
@@ -26,6 +28,7 @@ class SubmitService
             IntPtr mainWindowHandle = WindowApi.FindAndActivateWindow(targetWindowTitle);
             if (mainWindowHandle == IntPtr.Zero)
             {
+                StopEvent?.Invoke(this, EventArgs.Empty);
                 Logger.Info($"找不到窗口: {targetWindowTitle}");
                 return;
             }
@@ -37,6 +40,7 @@ class SubmitService
             AutomationElement targetWindow = FindElement(mainWindow, targetElementTitle);
             if (targetWindow == null)
             {
+                StopEvent?.Invoke(this, EventArgs.Empty);
                 Logger.Info($"找不到 【{targetElementTitle}】,请打开某商品");
                 return;
             }
@@ -101,32 +105,51 @@ class SubmitService
         return rootElement.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, automationId));
     }
 
-    private void Submit(int maxCount, AutomationElement targetWindow)
-    {
-        int errorTime = 1;
-        HashSet<string> processed = new HashSet<string>();
-
+    private void click(AutomationElement targetWindow) {
         AutomationElement targetButton = FindElementById(targetWindow, GetConfigValue("SubmitBtn"));
         if (targetButton == null)
         {
             Logger.Info("未找到提交按钮。");
             return;
         }
+        MouseSimulator.Click(GetElementCenter(targetButton));
+    }
+
+
+    private void Submit(int maxCount, AutomationElement targetWindow)
+    {
+        int errorTime = 1;
+        HashSet<string> processed = new HashSet<string>();
+
 
         // 删除临时文件
         string resultPath = GetConfigValue("ResultFilePath");
         string resultFile = resultPath + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH-mm-ss") + ".txt";
-        Point buttonCenter = GetElementCenter(targetButton);
+  
+        AutomationElement id = FindElementById(targetWindow, GetConfigValue("ID"));
+        if ((id != null && Regex.IsMatch(id.Current.Name, @"^-?\d+$")) && errorTime < 15)
+        {
+            processed.Add(id.Current.Name);
+        }
 
         DialogListener.Instance.Start();
-        int x = (int)buttonCenter.X;
-        int y = (int)buttonCenter.Y;
-        MouseSimulator.Click(x, y);
+        
+        click(targetWindow);
+        if (Config.Enable("FileSubmit")) {
+            File.Delete(Config.GetDefault("FileSubmitPath", "submit.txt"));
+            Thread.Sleep(2000 * (maxCount / 60));
+        }
+     
         string max = GetConfigValue("maxNum");
-        for (int i = 1; i <= maxCount; i++)
+        int waitMill = Config.GetInt("WaitMillSeconds");
+        int cycleTime = Config.GetInt("CycleTime", 20);
+        while(processed.Count() < maxCount)
         {
+           
             try
             {
+
+
                 if (!MainWindow.IsProcess() || !processd)
                 {
                     Stop();
@@ -134,7 +157,44 @@ class SubmitService
                     return;
                 }
 
-                if (max != null && i > 1 && i % int.Parse(max) == 1)
+
+                if (DialogListener.needCheck && false)
+                {
+                    click(targetWindow);
+                    DialogListener.needCheck = false;
+                    Thread.Sleep(waitMill);
+                    continue;
+                }
+                else {
+
+                    //AutomationElement ok = FindElementById(targetWindow, Config.GetDefault("OK", "loaderOK"));
+                    //if ((ok == null || ok.Current.Name != Config.GetDefault("OK_Result", "修改成功！")) && errorTime <= cycleTime)
+                    //{
+                    //    errorTime++;
+                    //    Thread.Sleep(waitMill);
+                    //    continue;
+                    //}
+                }
+                 
+                id = FindElementById(targetWindow, GetConfigValue("ID"));
+                if ((id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$")) && errorTime <= cycleTime)
+                {
+                    if (errorTime < cycleTime)
+                    {
+
+                        errorTime++;
+                    }
+                    else {
+                        errorTime = 0;
+                        Logger.Info($"多次未找到ID，已等待{cycleTime * waitMill /1000}秒，尝试刷新页面");
+                        Refresh(targetWindow);
+                    }
+                    Thread.Sleep(waitMill);
+                    //Refresh(targetWindow);
+                    continue;
+                }
+
+                if (max != null && processed.Count() > 5 && processed.Count() % int.Parse(max) == 1)
                 {
                     MessageBoxResult res = MessageBox.Show("已处理{max}个是否继续?", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (res == MessageBoxResult.No)
@@ -144,60 +204,43 @@ class SubmitService
                     }
                 }
 
-                int waitTime = Config.GetInt("WaitTime", 1000);
-                AutomationElement id = FindElementById(targetWindow, GetConfigValue("ID"));
-                if (id == null || !Regex.IsMatch(id.Current.Name, @"^-?\d+$"))
+                click(targetWindow);
+                Thread.Sleep(50);
+                StockInput.PressEnter();
+                errorTime = 0;
+                if (id != null)
                 {
-                    Thread.Sleep(2000);
-                    Refresh(targetWindow);
-                    Logger.Info($"第{i}个 id找不到刷新重试");
-                }
-                else { 
-                    Logger.Info($"第{i}个: {id.Current.Name}");
                     processed.Add(id.Current.Name);
-                    i = processed.Count;
-                    MouseSimulator.Click(x, y);
-                    // Thread.Sleep(100);
-                    StockInput.PressEnter();
-
-                    //StockInput.PressEnter();
-                    //StockInput.PressEnter();
-
-
-
-                    if (processed.Count >= maxCount)
-                    {
-                        Logger.Info($"已处理 {processed.Count} 个商品，达到最大处理数量 终止。");
-                        break;
-                    }
-
-                    errorTime = 0;
                 }
-                Thread.Sleep(Config.GetInt("WaitMillSeconds"));
-
             }
             catch (Exception ex)
             {
-                Logger.Error($"第{i}个处理失败 重试【{errorTime}】: {ex.Message}");
-                Refresh(targetWindow);
-                if (errorTime <= 10)
+                Logger.Error($"第{processed.Count()}个处理失败 重试【{errorTime}】: {ex.Message}");
+                if (errorTime <= cycleTime)
                 {
-                    i--;
                     errorTime++;
                 }
+                else {
+                    Refresh(targetWindow);
+                }
             }
+            Thread.Sleep(waitMill);
         }
+
+        click(targetWindow);
+        Logger.Info($"已处理 {processed.Count} 个商品，达到最大处理数量 终止。");
 
 
         try
         {
-            string compare = Config.Get("CompareFilePath");
+            string resText = null;
+            string compare = Config.Enable("FileSubmit") ?  Config.GetDefault("FileSubmitPath", "submit.txt") : Config.Get("CompareFilePath");
             List<string> needProcess = !File.Exists(compare) ? new List<string>() : File.ReadAllLines(compare).Distinct().ToList();
             List<string> notProcess = new List<string>();
             foreach (string line in needProcess)
             {
 
-                if (processed.Contains(line))
+                if (processed.Contains(line) || line.StartsWith("[Page"))
                 {
                     //File.AppendLines(resultFile, line);
                 }
@@ -211,14 +254,16 @@ class SubmitService
             {
                 File.WriteAllLines(resultFile, notProcess);
                 int success = maxCount == 0 ? 1 : maxCount - notProcess.Count;
-                Logger.Info($"所有{maxCount},成功:{success} 未处理:{notProcess.Count}, 请查看{resultFile}");
+                resText = $"所有{maxCount},成功:{success} 未处理:{notProcess.Count}, 请查看{resultFile}";
+                Logger.Info(resText);
             }
             else
             {
-
-                Logger.Info($"全部处理成功 {maxCount}");
+                resText = $"全部处理成功 {maxCount} ";
+                Logger.Info(resText);
             }
             Stop();
+            MessageBox.Show(resText);
         }
         catch { }
 
@@ -247,6 +292,7 @@ class SubmitService
 
     internal void Stop()
     {
+        StopEvent?.Invoke(this, EventArgs.Empty);
         processd = false;
         DialogListener.Instance.Stop();
     }

@@ -82,7 +82,9 @@ class WhiteService
                     MaxDegreeOfParallelism = Config.GetInt("MaxThread", 100)
                 };
                 Parallel.ForEach(allFileLarge, parallelOptions, file => ProcessFile(file));
-                Logger.Info($"本地白框,处理完毕,共 {skus}个商品 {allFileLarge.Count()} 张图片");
+                string resText = $"本地白框,处理完毕,共 {skus}个商品 {allFileLarge.Count()} 张图片";
+                Logger.Info(resText);
+                MessageBox.Show(resText);
             }
             catch (UnauthorizedAccessException)
             {
