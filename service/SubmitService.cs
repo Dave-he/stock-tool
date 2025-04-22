@@ -56,7 +56,25 @@ class SubmitService
                 try
                 {
                     processd = true;
-                    Submit(maxCount, targetWindow);
+
+                    if (Config.Enable("Submit2"))
+                    {
+                        File.Delete(Config.GetDefault("FileSubmitPath", "submit.txt"));
+                        DialogListener.Instance.Start(maxCount);
+                        Thread.Sleep(200);
+
+                        click(targetWindow);
+                        int waitPage = int.Parse(Config.GetDefault("pageWaitMs", "1000")) + 100;
+                       
+                        Thread.Sleep(waitPage * (maxCount / 60));
+                        click(targetWindow);
+                        return;
+                    }
+                    else {
+                        Submit(maxCount, targetWindow);
+                    }
+
+                     
                 }
                 catch (Exception ex)
                 {
@@ -139,6 +157,7 @@ class SubmitService
             File.Delete(Config.GetDefault("FileSubmitPath", "submit.txt"));
             Thread.Sleep(2000 * (maxCount / 60));
         }
+
      
         string max = GetConfigValue("maxNum");
         int waitMill = Config.GetInt("WaitMillSeconds");
@@ -215,13 +234,19 @@ class SubmitService
             }
             catch (Exception ex)
             {
+       
                 Logger.Error($"第{processed.Count()}个处理失败 重试【{errorTime}】: {ex.Message}");
+                if (ex.Message.StartsWith("调用线程无法访问此对象，因为另一个线程拥有该对象。"))
+                {
+                    break;
+                }
                 if (errorTime <= cycleTime)
                 {
                     errorTime++;
                 }
                 else {
                     Refresh(targetWindow);
+                    break;
                 }
             }
             Thread.Sleep(waitMill);

@@ -989,7 +989,7 @@ public class EPanelEx : EPanelBase
 
 			}
         }
-        MessageBox.Show($"本页已处理{items.Count},请点击下一页进行保存.");
+        MessageBox.Show($"本页已处理{items.Count},请点击下一页进行保存.", "信息");
         //foreach (Control control in pic.Controls)
         //{
         //    if (control is EImage eImage && eImage.Url.Length > 0)
@@ -1304,11 +1304,20 @@ public class EPanelEx : EPanelBase
                 int n = eGallery.Cells.IndexOf(cell);
                 if (mode)
 				{
-					
-					eGallery.SetCurrent(n);
-					EControl con = base.OnCreate(eGallery, nextId);
-                    Page = con;
-                    con.Load();
+					try
+					{
+						EControl con = base.OnCreate(eGallery, nextId);
+						Page = con;
+						con.Load();
+					}
+					catch (Exception ex)
+					{
+						MessageBox.Show("切页错误" + ex.Message);
+                    }
+                    finally
+                    {
+                        eGallery.SetCurrent(n);
+                    }
                 }
 				else {
                     eGallery.CurrentCell = eGallery.Cells[n];
@@ -1579,9 +1588,25 @@ public class EPanelEx : EPanelBase
 				this.Controls.Add(submitBtn);
 				submitBtn.Location = new Point(point.X - 100, point.Y + 2);
 				submitBtn.Click += (s, e) =>
-                {
-                    Task.Run(()=> submit());
-                };
+				{
+					try
+					{
+						bool newFun = enableFunc("Submit2");
+						if (newFun)
+						{
+							Task.Run(() => submit2());
+
+						}
+						else
+						{
+							Task.Run(() => submit());
+						}
+					}
+					catch (Exception ex)
+					{
+						MessageBox.Show("提交失败" + ex.Message);
+					}
+				};
 			}
             if (refreshBtn == null)
             {
@@ -1709,7 +1734,7 @@ public class EPanelEx : EPanelBase
                 eGallery.Invalidate();
             }
 		}
-        MessageBox.Show($"已获取{totalPage}页,共{totalCount},请点击{fileName}查看结果");
+        MessageBox.Show($"已获取{totalPage}页,共{totalCount},请点击{fileName}查看结果", "确认");
     }
 
 	
@@ -1726,12 +1751,322 @@ public class EPanelEx : EPanelBase
 
 	private const string SUBMIT = "submit.txt";
 
+
+	private void processSubmit2(List<string> ids, HashSet<string> needProcessId) {
+        int n = 0;
+        ETheme.Release(Page);
+        for (int i = 0; i < ids.Count; i++)
+        {
+            try
+            {
+                string id = ids[i];
+                ETurn eTurn = null;
+                EGallery eGallery = null;
+              
+                foreach (EControl con in base.Parent.Controls[0].Controls)
+                {
+                    if (con is EGallery eg && eg.Name.Equals("grid"))
+                    {
+                        eGallery = eg;
+                    }
+                    if (con is ETurn a && a.Name.Equals("PTurn"))
+                    {
+                        eTurn = a;
+                    }
+                }
+
+                if (id.IsNullOrEmpty())
+                {
+                    MessageBox.Show($"id {i} 行读取为空异常！", "错误");
+                    continue;
+                }
+
+                if (eGallery == null || eGallery.Cells.Count <= 0)
+                {
+                    eGallery.Invalidate();
+                    i--;
+                    Thread.Sleep(100);
+                    continue;
+                }
+
+                if (id.StartsWith("[Page"))
+                {
+                    n = 0;
+                    int page = id.IsNullOrEmpty() ? 1 : int.Parse(id.Split("]")[0].Replace("[Page:", ""));
+                    if (eTurn.Page != page)
+                    {
+                        eTurn.Page = page;
+                        eTurn.MyChange();
+                        eGallery.Invalidate();
+                        Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                    }
+                    continue;
+                }
+                this.Invoke(() =>
+                {
+					
+					Page.Name = id;
+                    Page.Load();
+                    //Invalidate();
+                    //CreatePage(eGallery, id);
+
+                });
+               // Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                n++;
+                string idName = null;
+                int errorTime = 0;
+                while (idName.IsNullOrEmpty() || !Regex.IsMatch(idName, @"^-?\d+$"))
+                {
+                    Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                    foreach (EControl con in Page.Controls)
+                    {
+                        if (con is ELabel label && label.Name.Equals("lblID") && !label.Text.IsNullOrEmpty())
+                        {
+                            idName = label.Text;
+                        }
+                    }
+                    errorTime++;
+                    if (errorTime > 60)
+                    {
+                        this.Invoke(() =>
+                        {
+                            Page?.Load();
+                        });
+                        Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                    }
+                    if (errorTime > 600)
+                    {
+                        MessageBox.Show("实在找不到ID进行下一个", "错误");
+                        continue;
+                    }
+                }
+
+
+                EStockEdit tableTmp = null;
+                EButton buttonTmp = null;
+                EButton button2Tmp = null;
+                EText allTmp = null;
+                EPic picTmp = null;
+
+                //Server.Instance.Load(this);
+                foreach (EControl con in Page.Controls)
+                {
+                    ETheme.Release(con);
+                    if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
+                    {
+                        tableTmp = eg;
+                    }
+                    if (con is EButton btn1 && btn1.Name.Equals("btnSubmit1"))
+                    {
+                        buttonTmp = btn1;
+                    }
+                    if (con is EButton btn2 && btn2.Name.Equals("btnBottom"))
+                    {
+                        button2Tmp = btn2;
+                    }
+                    if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
+                    {
+                        repeat.Checked = true;
+                    }
+                    if (con is EPic epic && epic.Name.Equals("epic"))
+                    {
+                        picTmp = epic;
+                    }
+                    if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
+                    {
+
+                        foreach (EControl con1 in sl.Controls)
+                        {
+
+                            if (con1 is ETextUnit tu && tu.Name.Equals("txtNum"))
+                            {
+
+                                foreach (EControl con2 in con1.Controls)
+                                {
+
+                                    if (con2 is EText tu2)
+                                    {
+                                        allTmp = tu2;
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+
+                        }
+                    }
+                }
+                int size = 0;
+                bool imgFunc = false;
+                if (picTmp != null && enableFunc("SaveEnable"))
+                {
+                    foreach (EControl con in picTmp.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+                            this.Invoke(() =>
+                            {
+                                eImage.MyReplace(picTmp.Prefix);
+                            });
+                            size++;
+                        }
+                    }
+                    imgFunc = true;
+
+                }
+
+
+                int num = 0;
+                if (enableFunc("StockEnable") && File.Exists("stock.json"))
+                {
+
+                    JsonArray config = JsonArray.Create(File.ReadAllText("stock.json"));
+                    bool modify = true;
+                    foreach (ETRow row in tableTmp.Rows)
+                    {
+                        foreach (ETCell cell in row.Cells)
+                        {
+                            foreach (JsonElement item in config)
+                            {
+                                if (cell.Name == item.GetString("key"))
+                                {
+                                    num++;
+                                    cell.Text = getRandomNum(item.GetString("value"));
+                                    modify = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if (modify && allTmp != null)
+                    {
+                        foreach (JsonElement item in config)
+                        {
+                            if (!item.GetString("key").Equals("num"))
+                            {
+                                continue;
+                            }
+                            num++;
+                            allTmp.Text = getRandomNum(item.GetString("value"));
+                        }
+                    }
+
+                }
+
+                if (!enableFunc("FileSubmit"))
+                {
+                    File.AppendAllLines("stock_tmp.txt", [id]);
+                }
+
+                // 获取私有方法的 MethodInfo 对象
+                MethodInfo methodInfo = Page.GetType().GetMethod("btnSubmit_Click", BindingFlags.NonPublic | BindingFlags.Instance);
+                //submitStatus = imgFunc ? 1 : 2;
+                submiting = 1;
+
+                if (methodInfo != null)
+                {
+                    //MessageBox.Show($"提交 {idName}，图片【{size}】，变体【{num}】 ", "信息");
+                    // 调用私有方法
+                    methodInfo.Invoke(Page, new object[] { buttonTmp == null ? button2Tmp : buttonTmp, EventArgs.Empty });
+                }
+                //Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                string idName2 = null;
+                string loaderOK = null;
+
+                errorTime = 0;
+                Detail.Sale sale =(Detail.Sale)Page;
+
+                while (sale.Loading || !sale.Visible || !sale.Enabled) {
+					errorTime++;
+                    Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                }
+				errorTime = 0;
+                while (idName2.IsNullOrEmpty() || !Regex.IsMatch(idName2, @"^-?\d+$") || loaderOK.IsNullOrWhiteSpace())
+                {
+                    Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                    foreach (EControl con in Page.Controls)
+                    {
+                        if (con is ELabel label && label.Name.Equals("lblID") && !label.Text.IsNullOrEmpty())
+                        {
+                            idName2 = label.Text;
+                        }
+
+                        if (con is ELoader loader && loader.Name.Equals("loaderOK"))
+                        {
+                            loaderOK = loader.Text;
+                        }
+                    }
+
+                    errorTime++;
+                    if (errorTime > 60)
+                    {
+                        this.Invoke(() =>
+                        {
+                            Page?.Load();
+                        });
+                        Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                    }
+                    if (errorTime > 500)
+                    {
+                        MessageBox.Show("等待提交超时，进行下一个", "错误");
+                        continue;
+                    }
+
+                }
+				needProcessId.Add(idName2);
+                MessageBox.Show("提交完成[" + idName2 + "]，图片【" + size + "】个，变体【" + num + "】个", "确认");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"第【{i}】个提交异常，重试" + ex.Message);
+                i--;
+            }
+        }
+
+    }
+
+	private async Task submit2() {
+
+		if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
+		{
+			return;
+		}
+
+		if (!File.Exists(SUBMIT))
+		{
+			GetAllSku(SUBMIT);
+			return;
+		}
+
+		List<string> ids = File.ReadAllLines(SUBMIT).ToList();
+		File.Delete(SUBMIT);
+		HashSet<string> needProcessId = new HashSet<string>();
+		processSubmit2(ids, needProcessId);
+
+		if (needProcessId.Count < ids.Count)
+		{
+			 List<string> notProcessId = ids.Except(needProcessId).ToList();
+		     MessageBox.Show($"部分ID提交失败，重试执行: {notProcessId}", "信息");
+			 processSubmit2(notProcessId, needProcessId);
+            //         ids.ForEach(i=> {
+
+            //	if (!needProcessId.Contains(i)) {
+            //		processSubmit2([i], new HashSet<string>());
+            //	}
+            //});
+        }
+        MessageBox.Show($"结束-已完成:{ids.Count}个", "确认");
+    }
+
+	private static int errTime = 0;
+
     private async Task submit() {
-        if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
+
+        if (Page == null || Page.Name.IsNullOrEmpty() || !Page.Visible || !enableMenu(base.Parent.Name))
         {
             return;
         }
-
+        ETheme.Release(Page);
         if (!File.Exists(SUBMIT) && enableFunc("FileSubmit"))
 		{
             GetAllSku(SUBMIT);
@@ -1752,6 +2087,7 @@ public class EPanelEx : EPanelBase
         
 		foreach (EControl con in Page.Controls)
 		{
+            ETheme.Release(con);
             if (con is ELabel label && label.Name.Equals("lblID") && !label.Text.IsNullOrEmpty())
 			{
 				idName = label.Text;
@@ -1778,9 +2114,13 @@ public class EPanelEx : EPanelBase
             {
                 submiting++;
             }
-            MessageBox.Show($"任在处理中请稍等");
-            return;
-		}
+			errTime++;
+            MessageBox.Show($"任在处理中请稍等", "信息");
+			if (errTime < 120)
+			{
+                return;
+            }
+        }
 	
 
 		ETurn eTurn = null;
@@ -1801,6 +2141,7 @@ public class EPanelEx : EPanelBase
 		{
 			return;
 		}
+		errTime = 0;
 
 		//if (submitStatus >= 2) {
 		//	eGallery.Invoke(() => ChangePage(eGallery, eTurn));
@@ -1811,7 +2152,7 @@ public class EPanelEx : EPanelBase
 		if(submiting>=1 && !loaderOK.IsNullOrEmpty()) {
             eGallery.Invoke(() => ChangePageByFile(eGallery, eTurn, idName));
             pageStatus = 1;
-            MessageBox.Show($" {idName} {loaderOK} 读取下一个");
+            MessageBox.Show($" {idName} {loaderOK} 读取下一个", "信息");
 			return;
         }
 
@@ -1824,6 +2165,7 @@ public class EPanelEx : EPanelBase
         //Server.Instance.Load(this);
         foreach (EControl con in Page.Controls)
         {
+            ETheme.Release(con);
             if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
             {
                 tableTmp = eg;

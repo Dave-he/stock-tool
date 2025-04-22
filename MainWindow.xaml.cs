@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private SubmitService submitService;
     private BoswerListener boswerListener;
 
+
     public MainWindow()
     {
         InitializeComponent();
@@ -41,6 +42,7 @@ public partial class MainWindow : Window
         DialogBtn.Visibility = Visibility.Hidden;
         submitService = new SubmitService();
         submitService.StopEvent += SubmitStop;
+        DialogListener.Instance.StopEvent += SubmitStop; 
         if (!Config.Enable("SaveEnable")) { 
             SaveGrid.Visibility = Visibility.Hidden;
         }
@@ -66,8 +68,12 @@ public partial class MainWindow : Window
         SubmitBtn2.Content = "库存提交";
     }
 
+
+
     private void SubmitBtn_Click(object sender, RoutedEventArgs e)
     {
+        SubmitBtn.IsEnabled = false;
+        SubmitBtn2.IsEnabled = false;
         e.Handled = true;
         if (isSubmit)
         {
@@ -82,6 +88,16 @@ public partial class MainWindow : Window
             submitService.SubmitClick(sender, e);
         }
         isSubmit = !isSubmit;
+        try
+        {
+            // 模拟一个耗时操作，例如网络请求
+             Task.Delay(1000).Wait();
+        }
+        finally
+        {
+            SubmitBtn.IsEnabled = true;
+            SubmitBtn2.IsEnabled = true;
+        }
     }
 
     internal static bool IsProcess() { return _isProcessing; }

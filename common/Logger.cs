@@ -86,7 +86,8 @@ public class Logger
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"写入日志文件时出错: {ex.Message}");
+                App.WriteLog($"写入日志出错{message},{ex.Message}");
+       
             }
 
             // 在 RichTextBox 中显示日志

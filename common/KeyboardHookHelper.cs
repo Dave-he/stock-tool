@@ -13,11 +13,12 @@ public class KeyboardHookHelper
 
     public static void SetHook()
     {
-        using (Process curProcess = Process.GetCurrentProcess())
-        using (ProcessModule curModule = curProcess.MainModule)
-        {
-            _hookID = SetWindowsHookEx(WH_KEYBOARD_LL, _proc,
-                GetModuleHandle(curModule.ModuleName), 0);
+        using (Process curProcess = Process.GetCurrentProcess()) { 
+            using (ProcessModule curModule = curProcess.MainModule)
+            {
+                _hookID = SetWindowsHookEx(WH_KEYBOARD_LL, _proc,
+                    GetModuleHandle(curModule.ModuleName), 0);
+            }
         }
     }
 
