@@ -59,14 +59,19 @@ class SubmitService
 
                     if (Config.Enable("Submit2"))
                     {
-                        File.Delete(Config.GetDefault("FileSubmitPath", "submit.txt"));
+                        //File.Delete(Config.GetDefault("FileSubmitPath", "submit.txt"));
                         DialogListener.Instance.Start(maxCount);
                         Thread.Sleep(200);
 
                         click(targetWindow);
                         int waitPage = int.Parse(Config.GetDefault("pageWaitMs", "1000")) + 100;
-                       
-                        Thread.Sleep(waitPage * (maxCount / 60));
+                        if (!File.Exists(Config.GetDefault("FileSubmitPath", "submit.txt")))
+                        {
+                            Thread.Sleep(waitPage * (maxCount / 60));
+                        }
+                        else {
+                            Thread.Sleep(100);
+                        }
                         click(targetWindow);
                         return;
                     }

@@ -1118,62 +1118,81 @@ public class EPanelEx : EPanelBase
 			{
 				continue;
 			}
-            saveBtn.Text = id +"...";
-            object[] parameters2 = new object[2] { "id", id };
-			object paraTask = posAsync.Invoke(zClient, parameters2);
-			Task task2 = paraTask as Task;
-			Type type2 = paraTask.GetType().GetGenericArguments()[0];
-			PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
-			await task2;
-			object value2 = paraProperty.GetValue(paraTask);
-			RecordSet set = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet);
-
-            string text = set.ToJson();
-			File.WriteAllText(logpath + "text-" + id + ".json", text);
-            File.WriteAllBytes(logpath + id +".data", set.ToBytes());
-            JsonObject jsonObject = JsonObject.Create(text);
-
-			JsonArray root =
-			//JsonObject.Create(File.ReadAllText("C:\\ZYing\\log\\2025-03-30 14-02-47\\text-383831467.json"))
-			// .GetArray("root");
-			jsonObject.GetArray("root");
-			total++;
-            foreach (JsonObject node in root)
+			try
 			{
-				HashSet<string> list = node.GetArray("sale_pic").Select(c => c.ToString()).ToHashSet();
-				if (list.Count == 0) {
-					//errorMsg += $"id {id} sale_pic为空！\n";
-					List<string> stockList = [.. node.GetArray("sale_stock").Select(c => c.Get("pic").ToString())];
-
-					foreach (string stock in stockList) { 
-						stock.Split(",").ToList().ForEach(c => list.Add(c));
-                    }
-                }
-
-				if (list.Count == 0) {
-                    errorMsg += $"id {id} 图片为空！\n";
-                }
-
-                foreach (string line in list)
-				{
-					if (line.Length <= 0)
+				int errTime = 0;
+				saveBtn.Text = id +"...";
+				RecordSet set = null;
+                while (set == null && errTime < 60)
+                {
+					object[] parameters2 = new object[2] { "id", id };
+					object paraTask = posAsync.Invoke(zClient, parameters2);
+					Task task2 = paraTask as Task;
+					Type type2 = paraTask.GetType().GetGenericArguments()[0];
+					PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+					await task2;
+					
+					object value2 = paraProperty.GetValue(paraTask);
+                    set =(value2.GetType().GetField("RS").GetValue(value2) as RecordSet);
+					if (set == null)
 					{
-						continue;
+						errTime++;
+                        Thread.Sleep(2000);
+                    }
+				}
+
+				string text = set.ToJson();
+				File.WriteAllText(logpath + "text-" + id + ".json", text);
+				File.WriteAllBytes(logpath + id + ".data", set.ToBytes());
+				JsonObject jsonObject = JsonObject.Create(text);
+
+				JsonArray root =
+				//JsonObject.Create(File.ReadAllText("C:\\ZYing\\log\\2025-03-30 14-02-47\\text-383831467.json"))
+				// .GetArray("root");
+				jsonObject.GetArray("root");
+				total++;
+				foreach (JsonObject node in root)
+				{
+					HashSet<string> list = node.GetArray("sale_pic").Select(c => c.ToString()).ToHashSet();
+					if (list.Count == 0) {
+						//errorMsg += $"id {id} sale_pic为空！\n";
+						List<string> stockList = [.. node.GetArray("sale_stock").Select(c => c.Get("pic").ToString())];
+
+						foreach (string stock in stockList) {
+							stock.Split(",").ToList().ForEach(c => list.Add(c));
+						}
 					}
 
-					EImage image = new EImage();
-					image.Url = line;
-					image.Mode = PictureBoxSizeMode.Zoom;
-                    tasks.Add(image.MySave(id));
-					count++;
-                    if (tasks.Count > pallelNum)
-                    {
+					if (list.Count == 0) {
+						errorMsg += $"id {id} 图片为空！\n";
+					}
 
-                        await Task.WhenAll(tasks);
-                        tasks.Clear();
-                    }
-                }
-             
+					foreach (string line in list)
+					{
+						if (line.Length <= 0)
+						{
+							continue;
+						}
+
+						EImage image = new EImage();
+						image.Url = line;
+						image.Mode = PictureBoxSizeMode.Zoom;
+						tasks.Add(image.MySave(id));
+						count++;
+						if (tasks.Count > pallelNum)
+						{
+
+							await Task.WhenAll(tasks);
+							tasks.Clear();
+						}
+					}
+
+				}
+            
+            }
+            catch (Exception ex) {
+
+                File.AppendAllLines(logpath + "text.error", [ex.Message]);
             }
 
 		
@@ -2013,7 +2032,48 @@ public class EPanelEx : EPanelBase
                     }
 
                 }
-				needProcessId.Add(idName2);
+                if (enableFunc("ReleaseEventEnable"))
+                {
+                    if (initialEventCache == null)
+                    {
+                        initialEventCache = new ControlEventCache(Page);
+                    }
+                    else
+                    {
+
+                        time++;
+                        if (time > 60)
+                        {
+                            ControlEventManager.ReleaseChangedEvents(initialEventCache);
+                            GC.Collect();
+                            time = 0;
+                        }
+                    }
+                }
+
+                if (picTmp != null && enableFunc("SaveEnable"))
+                {
+                    foreach (EControl con in picTmp.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+                            //size++;
+                            if (OSS.IsFile(eImage.Url))
+                            {
+								i--;
+                                MessageBox.Show($"图片 {eImage.Url} 为本地状态，重新提交", "错误");
+								break;
+                            }
+                            if (OSS.IsRemote(eImage.Url))
+                            {
+								i--;
+                                MessageBox.Show($"图片 {eImage.Url} 为远程状态，重新提交！", "错误");
+								break;
+                            }
+                        }
+                    }
+                }
+                needProcessId.Add(idName2);
                 MessageBox.Show("提交完成[" + idName2 + "]，图片【" + size + "】个，变体【" + num + "】个", "确认");
             }
             catch (Exception ex)
@@ -2025,22 +2085,50 @@ public class EPanelEx : EPanelBase
 
     }
 
+
+	private static bool first = true;
 	private async Task submit2() {
 
 		if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
 		{
 			return;
 		}
-
-		if (!File.Exists(SUBMIT))
+       
+        if (!File.Exists(SUBMIT))
 		{
+			first = false;
 			GetAllSku(SUBMIT);
 			return;
 		}
+        if (first)
+        {
+            first = false;
+            return;
+        }
+        else
+        {
+            first = true;
+        }
 
-		List<string> ids = File.ReadAllLines(SUBMIT).ToList();
-		File.Delete(SUBMIT);
-		HashSet<string> needProcessId = new HashSet<string>();
+
+        List<string> ids = [.. File.ReadAllLines(SUBMIT)];
+        int count = ids.Where(c => !c.StartsWith("[Page")).Count();
+        File.Delete(SUBMIT);
+
+        DialogResult res = MessageBox.Show($"读取到上次未提交的 【{count}】个，是否继续？", "确认",
+			MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+		if (res == DialogResult.No) { 
+            GetAllSku(SUBMIT);
+            return;
+        }
+	
+		int finalSkipNum = GetFuncConfig("FinalMaxNum", 366);
+		if (ids.Count > finalSkipNum)
+		{
+			File.AppendAllLines(SUBMIT, ids.Skip(finalSkipNum));
+            ids = ids.Take(finalSkipNum).ToList();
+        }
+        HashSet<string> needProcessId = new HashSet<string>();
 		processSubmit2(ids, needProcessId);
 
 		if (needProcessId.Count < ids.Count)
@@ -2248,7 +2336,20 @@ public class EPanelEx : EPanelBase
             submitStatus = 2;
 			submiting = 0;
             MessageBox.Show($"检查通过 {idName}，图片【{size}】个", "信息");
-		
+			if (enableFunc("ReleaseEventEnable")) {
+				if (initialEventCache == null) {
+					initialEventCache = new ControlEventCache(Page);
+				}
+				else {
+
+					time++;
+					if (time > 60) {
+                        ControlEventManager.ReleaseChangedEvents(initialEventCache);
+						GC.Collect();
+						time = 0;
+                    }
+				}
+            }
             return;
         }
 
@@ -2342,4 +2443,131 @@ public class EPanelEx : EPanelBase
         //}
 
     }
+
+
+    private ControlEventCache initialEventCache = null;
+	private static int time = 0;
+
+    public static class ControlEventManager
+    {
+        public static IEnumerable<Control> GetAllControls(Control topControl)
+        {
+            if (topControl == null) yield break;
+
+            var stack = new Stack<Control>();
+            stack.Push(topControl);
+
+            while (stack.Count > 0)
+            {
+                var control = stack.Pop();
+                yield return control;
+
+                for (int i = control.Controls.Count - 1; i >= 0; i--)
+                {
+                    stack.Push(control.Controls[i]);
+                }
+            }
+        }
+
+        public static void ReleaseAllEvents(Control control)
+        {
+            if (control == null) return;
+            var type = control.GetType();
+            var eventInfos = type.GetEvents(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            foreach (var eventInfo in eventInfos)
+            {
+                var fieldInfo = type.GetField(eventInfo.Name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (fieldInfo == null) continue;
+
+                var handlers = (MulticastDelegate)fieldInfo.GetValue(control);
+                if (handlers == null) continue;
+
+                foreach (var handler in handlers.GetInvocationList())
+                {
+                    try
+                    {
+                        var removeMethod = eventInfo.GetRemoveMethod(true);
+                        removeMethod?.Invoke(control, new[] { handler });
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        public static void ReleaseChangedEvents(ControlEventCache cache)
+        {
+            if (cache == null || cache.Control == null) return;
+            var currentControl = cache.Control;
+            var type = currentControl.GetType();
+
+            foreach (var eventName in cache.EventHandlers.Keys)
+            {
+                var eventInfo = type.GetEvent(eventName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (eventInfo == null) continue;
+
+                var fieldInfo = type.GetField(eventName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (fieldInfo == null) continue;
+
+                var currentHandlers = (MulticastDelegate)fieldInfo.GetValue(currentControl);
+                if (currentHandlers == null) continue;
+
+                var oldHandlers = cache.EventHandlers[eventName];
+
+                foreach (var oldHandler in oldHandlers)
+                {
+                    if (!currentHandlers.GetInvocationList().Contains(oldHandler))
+                    {
+                        try
+                        {
+                            var removeMethod = eventInfo.GetRemoveMethod(true);
+                            removeMethod?.Invoke(currentControl, new[] { oldHandler });
+                            Console.WriteLine($"释放变化的事件句柄：{eventName} -> {oldHandler.Method.Name}");
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+
+        public static void ReleaseAllControlsEvents(Control topControl)
+        {
+            foreach (var control in GetAllControls(topControl))
+            {
+                ReleaseAllEvents(control);
+            }
+            Console.WriteLine("已释放所有控件的事件句柄");
+        }
+    }
+
+    public class ControlEventCache
+    {
+        public Control Control { get; }
+        public Dictionary<string, Delegate[]> EventHandlers { get; } = new Dictionary<string, Delegate[]>();
+
+        public ControlEventCache(Control control)
+        {
+            Control = control;
+            CacheEventHandlers(control);
+        }
+
+        private void CacheEventHandlers(Control control)
+        {
+            var type = control.GetType();
+            var eventInfos = type.GetEvents(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            foreach (var eventInfo in eventInfos)
+            {
+                var fieldInfo = type.GetField(eventInfo.Name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                if (fieldInfo == null) continue;
+
+                var handlers = (MulticastDelegate)fieldInfo.GetValue(control);
+                if (handlers != null)
+                {
+                    EventHandlers[eventInfo.Name] = handlers.GetInvocationList();
+                }
+            }
+        }
+    }
+
 }
