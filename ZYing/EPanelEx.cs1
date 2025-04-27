@@ -71,11 +71,11 @@ public class EPanelEx : EPanelBase
 	private readonly Dictionary<string, int> _dict = new Dictionary<string, int>();
 
 	private EButton whiteBtn = null;
-    private EButton saveBtn = null;
-    private EButton submitBtn = null;
-    private EButton refreshBtn = null;
+	private EButton saveBtn = null;
+	private EButton submitBtn = null;
+	private EButton refreshBtn = null;
 
-    public static ContextMenuStrip 停靠
+	public static ContextMenuStrip 停靠
 	{
 		get
 		{
@@ -453,79 +453,79 @@ public class EPanelEx : EPanelBase
 		return eControl;
 	}
 
-	public EControl MyCreatePage(ISource src, string name) 
+	public EControl MyCreatePage(ISource src, string name)
 	{
-        EControl eControl = base[name];
-        if (eControl == null)
-        {
-            if (_queue.Count == 0)
-            {
-                eControl = base.OnCreate(src, name);
-                //Server.Instance.Start();
-                //Server.Instance.Load(this);
-            }
-            else
-            {
-                eControl = _queue.Dequeue();
-                eControl.ReplaceName(name);
-            }
+		EControl eControl = base[name];
+		if (eControl == null)
+		{
+			if (_queue.Count == 0)
+			{
+				eControl = base.OnCreate(src, name);
+				//Server.Instance.Start();
+				//Server.Instance.Load(this);
+			}
+			else
+			{
+				eControl = _queue.Dequeue();
+				eControl.ReplaceName(name);
+			}
 
-            if (!Visible)
-            {
-                if (base.Parent != null && base.Parent.Width > 0)
-                {
-                    base.Width = base.Parent.Width * 40 / 100;
-                    base.Percent = base.Width * 100 / base.Parent.Width;
-                }
-                Visible = true;
-            }
-            base.Pages.Insert(0, eControl);
-            Page = eControl;
-            eControl.Load();
-            //string path = Server.FindFirstFile(eControl.Name);
-            //if (path.IsNullOrEmpty())
-            //{
-            //             eControl.Load();
-            //         }
-            //else {
+			if (!Visible)
+			{
+				if (base.Parent != null && base.Parent.Width > 0)
+				{
+					base.Width = base.Parent.Width * 40 / 100;
+					base.Percent = base.Width * 100 / base.Parent.Width;
+				}
+				Visible = true;
+			}
+			base.Pages.Insert(0, eControl);
+			Page = eControl;
+			eControl.Load();
+			//string path = Server.FindFirstFile(eControl.Name);
+			//if (path.IsNullOrEmpty())
+			//{
+			//             eControl.Load();
+			//         }
+			//else {
 
-            //             RecordSet recordSet = RecordSet.From(File.ReadAllBytes(path));
-            //             ((Detail.Sale)eControl).Read(recordSet);
-            //	Task.Run(() => Server.DeleteAllFile(eControl.Name));
-            //         }
+			//             RecordSet recordSet = RecordSet.From(File.ReadAllBytes(path));
+			//             ((Detail.Sale)eControl).Read(recordSet);
+			//	Task.Run(() => Server.DeleteAllFile(eControl.Name));
+			//         }
 
-            //EControl pic = null;
-            //foreach (EControl con in eControl.Controls) {
-            //             if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
-            //             {
-            //                 repeat.Checked = true;
-            //             }
-            //             if (con is EPic epic && epic.Name.Equals("epic"))
-            //             {
-            //                 pic = epic;
-            //             }
-            //         }
+			//EControl pic = null;
+			//foreach (EControl con in eControl.Controls) {
+			//             if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
+			//             {
+			//                 repeat.Checked = true;
+			//             }
+			//             if (con is EPic epic && epic.Name.Equals("epic"))
+			//             {
+			//                 pic = epic;
+			//             }
+			//         }
 
-            //if (pic != null)
-            //{
+			//if (pic != null)
+			//{
 
-            //    foreach (EControl con in pic.Controls)
-            //    {
-            //        if (con is EImage eImage && eImage.Url.Length > 0)
-            //        {
-            //            eImage.MyReplace(eControl.Name);
-            //        }
-            //    }
-            //}
+			//    foreach (EControl con in pic.Controls)
+			//    {
+			//        if (con is EImage eImage && eImage.Url.Length > 0)
+			//        {
+			//            eImage.MyReplace(eControl.Name);
+			//        }
+			//    }
+			//}
 
-            Invalidate();
-        }
-        else if (eControl.Name != eControl.GetInnerName())
-        {
-            eControl.Load();
-        }
-        return eControl;
-    } 
+			Invalidate();
+		}
+		else if (eControl.Name != eControl.GetInnerName())
+		{
+			eControl.Load();
+		}
+		return eControl;
+	}
 
 	public void Insert(EControl ec)
 	{
@@ -604,15 +604,15 @@ public class EPanelEx : EPanelBase
 	}
 
 	public void MyRemove(string key)
-    {
-        EControl eControl = this[key];
-        if (eControl != null)
-        {
+	{
+		EControl eControl = this[key];
+		if (eControl != null)
+		{
 			foreach (EControl con in eControl.Controls) {
 				if (con is EPic pic) {
 					ETheme.Release(pic);
-                }
-				
+				}
+
 			}
 
 
@@ -621,14 +621,14 @@ public class EPanelEx : EPanelBase
 			((Detail.Sale)eControl).Reset();
 
 			//eControl.Dispose();
-            Remove(eControl);
+			Remove(eControl);
 		}
-    }
+	}
 
-    public void Clear(bool isclose = true)
+	public void Clear(bool isclose = true)
 	{
-        //Server.Instance.Stop();
-        for (int i = 0; i < base.Pages.Count; i++)
+		//Server.Instance.Stop();
+		for (int i = 0; i < base.Pages.Count; i++)
 		{
 			EControl eControl = base.Pages[i];
 			base.OnRemove(eControl);
@@ -644,16 +644,16 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-    public void Init()
+	public void Init()
 	{
 		//Server.Instance.Start();
-        base.Pages.Clear();
+		base.Pages.Clear();
 		_dict.Clear();
 		_queue.Clear();
 	}
 
 
-    protected virtual void OnClose()
+	protected virtual void OnClose()
 	{
 		try
 		{
@@ -911,35 +911,35 @@ public class EPanelEx : EPanelBase
 	}
 
 	private void whiteClick(object sender, EventArgs e)
-    {
-        if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
-        {
-            return;
-        }
-
-        List<string> ids = new List<string>();
-        foreach (EControl con in base.Parent.Controls[0].Controls)
-        {
-            if (con is EGallery eg && eg.Name.Equals("grid"))
-            {
-                ids = eg.Cells.Select(c => c.Name).ToList();
-            }
-        }
-       this.Invoke(()=> whiteAll((Detail.Sale)Page, ids));
-    }
-
-
-    private async Task whiteAll(Detail.Sale sale, List<string> items)
 	{
-    
-        object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+		if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
+		{
+			return;
+		}
+
+		List<string> ids = new List<string>();
+		foreach (EControl con in base.Parent.Controls[0].Controls)
+		{
+			if (con is EGallery eg && eg.Name.Equals("grid"))
+			{
+				ids = eg.Cells.Select(c => c.Name).ToList();
+			}
+		}
+		this.Invoke(() => whiteAll((Detail.Sale)Page, ids));
+	}
+
+
+	private async Task whiteAll(Detail.Sale sale, List<string> items)
+	{
+
+		object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
 		if (zClient == null)
 		{
 			MessageBox.Show("Collect ZClient is Null");
 			return;
 		}
-        FieldInfo commandField = zClient.GetType().GetField("Command");
-        commandField.SetValue(zClient, "spider.detail");
+		FieldInfo commandField = zClient.GetType().GetField("Command");
+		commandField.SetValue(zClient, "spider.detail");
 		MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
 		{
 		typeof(string),
@@ -981,43 +981,43 @@ public class EPanelEx : EPanelBase
 						continue;
 					}
 					EImage image = new EImage();
-                    image.Url = line;
-                    image.Mode = PictureBoxSizeMode.Zoom;
-                    await image.MyWhite(id);
-                    
+					image.Url = line;
+					image.Mode = PictureBoxSizeMode.Zoom;
+					await image.MyWhite(id);
+
 				}
 
 			}
-        }
-        MessageBox.Show($"本页已处理{items.Count},请点击下一页进行保存.", "信息");
-        //foreach (Control control in pic.Controls)
-        //{
-        //    if (control is EImage eImage && eImage.Url.Length > 0)
-        //    {
-        //        await eImage.白框ing(EImage.Get图片目录(), false);
+		}
+		MessageBox.Show($"本页已处理{items.Count},请点击下一页进行保存.", "信息");
+		//foreach (Control control in pic.Controls)
+		//{
+		//    if (control is EImage eImage && eImage.Url.Length > 0)
+		//    {
+		//        await eImage.白框ing(EImage.Get图片目录(), false);
 
-        //    }
-        //}
+		//    }
+		//}
 
-    }
+	}
 
 	private async Task<List<string>> queryAll(ETurn eTurn, string logPath) {
-        object zClient = Page.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic)
+		object zClient = Page.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic)
 			.GetValue(Page);
-        if (zClient == null)
-        {
-            return null;
-        }
-        FieldInfo commandField = zClient.GetType().GetField("Command");
-        commandField.SetValue(zClient, "spider.total");
-        MethodInfo posAsyncPara = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[1] { typeof(Para) }, null);
-        if (posAsyncPara == null)
-        {
+		if (zClient == null)
+		{
 			return null;
-        }
+		}
+		FieldInfo commandField = zClient.GetType().GetField("Command");
+		commandField.SetValue(zClient, "spider.total");
+		MethodInfo posAsyncPara = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[1] { typeof(Para) }, null);
+		if (posAsyncPara == null)
+		{
+			return null;
+		}
 
 		List<string> list = new List<string>();
-        for (int p = 1; p <= eTurn.Page; p++)
+		for (int p = 1; p <= eTurn.Page; p++)
 		{
 
 			Para para = new Para();
@@ -1032,70 +1032,61 @@ public class EPanelEx : EPanelBase
 			object value = paraProperty.GetValue(paraTask);
 			JsonObject jsonObject = JsonObject.Create((value.GetType().GetField("RS").GetValue(value) as RecordSet).ToJson());
 			File.WriteAllText(logPath + "page-" + p + ".json", jsonObject.ToString());
-            list.AddRange(jsonObject.GetArray("list/data").Select(item => item.GetString("id")).ToList());
+			list.AddRange(jsonObject.GetArray("list/data").Select(item => item.GetString("id")).ToList());
 		}
 		return list;
-    }
+	}
 
 	private const string NAME = "stock_sku_ids.txt";
 
 
-    private void saveClick(object sender, EventArgs e) {
+	private void saveClick(object sender, EventArgs e) {
 		if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name)) {
 			return;
 		}
-        string fileName = NAME;
-        List<string> ids = new List<string>();
-		if (File.Exists(fileName))
-		{
-			ids = File.ReadAllLines(fileName).ToList().FindAll((id) => !id.IsNullOrEmpty() && !id.StartsWith("[Page"));
-			File.Delete(fileName);
-			DialogResult res1 = MessageBox.Show($"读取到{ids.Count}个是否开始", "确认",
-				MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (res1 == DialogResult.No)
-			{
-				return;
-			}
-		}
-		else
-		{
-			DialogResult res = MessageBox.Show("开启分页保存？\n等待获取所有ID，再次点击保存开始", "确认",
-				 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (res == DialogResult.Yes)
-			{
-				Task.Run(() => GetAllSku(fileName));
-				return;
-			}
-         
+		string fileName = NAME;
+		List<string> ids = new List<string>();
+        DialogResult res = MessageBox.Show("开启分页保存？\n等待获取所有ID，再次点击保存开始", "确认",
+             MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (res == DialogResult.Yes)
+        {
+            Task.Run(()=> GetAllSku(fileName, false));
+            Thread.Sleep(GetFuncConfig("SaveWaitPageMill", 5000));
+            if (File.Exists(fileName))
+            {
+                ids = File.ReadAllLines(fileName).ToList().FindAll((id) => !id.IsNullOrEmpty() && !id.StartsWith("[Page"));
+                File.Delete(fileName);
+            }
         }
 
 		if (ids.IsNullOrEmpty()) {
-            foreach (EControl con in base.Parent.Controls[0].Controls)
-            {
-                if (con is EGallery eg && eg.Name.Equals("grid"))
-                {
-                    ids = eg.Cells.Select(c => c.Name).ToList();
-                }
-            }
-        }
-        saveAll(Page, ids);
-        //ids.SplitToBatch(10).ToList().ForEach(c=> saveAll((Detail.Sale)Page, c));
-    }
+			foreach (EControl con in base.Parent.Controls[0].Controls)
+			{
+				if (con is EGallery eg && eg.Name.Equals("grid"))
+				{
+					ids = eg.Cells.Select(c => c.Name).ToList();
+				}
+			}
+		}
 
-    
+		saveAll(Page, ids);
+	
+	}
 
-    private async Task saveAll(EControl sale, IReadOnlyList<string> ids) {
-        int pallelNum = GetFuncConfig("savePallelNum");
-        object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+
+
+	private async Task saveAll(EControl sale, List<string> ids) {
+		int pallelNum = GetFuncConfig("savePallelNum");
+		object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
 		if (zClient == null)
 		{
 			MessageBox.Show("Collect ZClient is Null");
 			return;
 		}
 
-        FieldInfo commandField = zClient.GetType().GetField("Command");
-        commandField.SetValue(zClient, "spider.detail");
-        MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+		FieldInfo commandField = zClient.GetType().GetField("Command");
+		commandField.SetValue(zClient, "spider.detail");
+		MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
 		{
 		typeof(string),
 		typeof(string)
@@ -1108,12 +1099,12 @@ public class EPanelEx : EPanelBase
 			Directory.CreateDirectory(logpath);
 		}
 
-        List<Task> tasks = new List<Task>();
+		List<Task> tasks = new List<Task>();
 		string errorMsg = string.Empty;
 		int count = 0;
 		int total = 0;
-        foreach (string id in ids)
-        {
+		foreach (string id in ids)
+		{
 			if (id.Length == 0 || id.StartsWith("[Page") || !Regex.IsMatch(id, @"^-?\d+$"))
 			{
 				continue;
@@ -1121,35 +1112,71 @@ public class EPanelEx : EPanelBase
 			try
 			{
 				int errTime = 0;
-				saveBtn.Text = id +"...";
+				this.Invoke(()=> saveBtn.Text = id);
 				RecordSet set = null;
-                while (set == null && errTime < 60)
-                {
-					object[] parameters2 = new object[2] { "id", id };
-					object paraTask = posAsync.Invoke(zClient, parameters2);
-					Task task2 = paraTask as Task;
-					Type type2 = paraTask.GetType().GetGenericArguments()[0];
-					PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
-					await task2;
-					
-					object value2 = paraProperty.GetValue(paraTask);
-                    set =(value2.GetType().GetField("RS").GetValue(value2) as RecordSet);
-					if (set == null)
+				JsonArray root = null;
+				while ((set == null || set.Count <= 0 || root == null) && errTime < 120)
+				{
+					try
 					{
-						errTime++;
-                        Thread.Sleep(2000);
-                    }
+						object[] parameters2 = new object[2] { "id", id };
+						object paraTask = posAsync.Invoke(zClient, parameters2);
+						Task task2 = paraTask as Task;
+						Type type2 = paraTask.GetType().GetGenericArguments()[0];
+						PropertyInfo paraProperty = typeof(Task<>).MakeGenericType(type2).GetProperty("Result");
+						await task2;
+
+						object value2 = paraProperty.GetValue(paraTask);
+						set = (value2.GetType().GetField("RS").GetValue(value2) as RecordSet);
+						if (set == null)
+						{
+							errTime++;
+							Page?.Load();
+							Thread.Sleep(2000);
+							zClient = Page.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Page);
+							if (zClient == null)
+							{
+								MessageBox.Show("Collect ZClient is Null");
+								// return;
+							}
+
+							commandField = zClient.GetType().GetField("Command");
+							commandField.SetValue(zClient, "spider.detail");
+							posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2]
+							{
+						typeof(string),
+						typeof(string)
+							}, null);
+						}
+
+						string text = set.ToJson();
+						if (text.IsNullOrEmpty())
+						{
+							errTime++;
+							continue;
+						}
+						File.WriteAllText(logpath + "text-" + id + ".json", text);
+						File.WriteAllBytes(logpath + id + ".data", set.ToBytes());
+
+						JsonObject jsonObject = JsonObject.Create(text);
+						root = jsonObject.GetArray("root");
+						if (root.Count == 0 || root[0].GetLong("sale_id") <= 0)
+						{
+							errTime++;
+							continue;
+						}
+					}
+					catch (Exception e)
+					{
+						File.AppendAllLines(logpath + "text.error", [e.Message]);
+
+					}
 				}
 
-				string text = set.ToJson();
-				File.WriteAllText(logpath + "text-" + id + ".json", text);
-				File.WriteAllBytes(logpath + id + ".data", set.ToBytes());
-				JsonObject jsonObject = JsonObject.Create(text);
 
-				JsonArray root =
 				//JsonObject.Create(File.ReadAllText("C:\\ZYing\\log\\2025-03-30 14-02-47\\text-383831467.json"))
 				// .GetArray("root");
-				jsonObject.GetArray("root");
+
 				total++;
 				foreach (JsonObject node in root)
 				{
@@ -1183,65 +1210,62 @@ public class EPanelEx : EPanelBase
 						{
 
 							await Task.WhenAll(tasks);
-							tasks.Clear();
+							tasks = new List<Task>();
 						}
 					}
 
 				}
-            
-            }
-            catch (Exception ex) {
 
-                File.AppendAllLines(logpath + "text.error", [ex.Message]);
-            }
+			}
+			catch (Exception ex) {
 
-		
-        }
-        await Task.WhenAll(tasks);
-        tasks.Clear();
-        saveBtn.Text = "保存";
-        if (errorMsg.IsNullOrEmpty())
+				File.AppendAllLines(logpath + "text.error", [ex.Message]);
+			}
+		}
+		await Task.WhenAll(tasks);
+		this.Invoke(()=> saveBtn.Text = "保存");
+		if (errorMsg.IsNullOrEmpty())
 		{
-            MessageBox.Show($"全部保存成功！\n 共处理{total}个商品,共{count} 张图片","信息");
-        }
-        else 
+			MessageBox.Show($"全部保存成功！\n 共处理{total}个商品,共{count} 张图片", "信息");
+		}
+		else
 		{
-            MessageBox.Show($"部分未保存请检查！\n " +
-				errorMsg+
+			MessageBox.Show($"部分未保存请检查！\n " +
+				errorMsg +
 				$"共处理{total}个商品,共{count} 张图片,\n请点击下一页进行保存.", "错误");
-        }
-    
+		}
+
 	}
 
 
 	private bool judgeReact(Point location, int diff) {
-        Point point = _sys.Location;
+		Point point = _sys.Location;
 		return new Rectangle(point.X - diff, point.Y + 4, 20, 20).Contains(location);
-    }
+	}
 
 	private static string getRandomNum(string value) {
-		if (value.IsNullOrEmpty() ||  !value.Contains("-"))
+		if (value.IsNullOrEmpty() || !value.Contains("-"))
 		{
 			return value;
 		}
-        string[] split = value.Split("-");
-        int min = int.Parse(split[0]);
-        int max = int.Parse(split[1]);
-        if (min > max)
-        {
-            int temp = min;
-            min = max;
-            max = temp;
-        }
-        int randomNumber = new Random().Next(min, max);
-        return randomNumber.ToString();
-    }
+		string[] split = value.Split("-");
+		int min = int.Parse(split[0]);
+		int max = int.Parse(split[1]);
+		if (min > max)
+		{
+			int temp = min;
+			min = max;
+			max = temp;
+		}
+		int randomNumber = new Random().Next(min, max);
+		return randomNumber.ToString();
+	}
 
 	private string getNextName(EGallery eGallery, ETurn eTurn)
 	{
 		if (eGallery == null)
 		{
-			return null; 
+			return null;
 		}
 		int currentNum = 0;
 		string pageName = Page.GetInnerName().IsNullOrEmpty() ? Page.Name : Page.GetInnerName();
@@ -1297,31 +1321,31 @@ public class EPanelEx : EPanelBase
 				break;
 			}
 		}
-		int page = pageLine.IsNullOrEmpty() ? 1: int.Parse(pageLine.Split("]")[0].Replace("[Page:", ""));
-		if (eTurn.Page != page) { 
+		int page = pageLine.IsNullOrEmpty() ? 1 : int.Parse(pageLine.Split("]")[0].Replace("[Page:", ""));
+		if (eTurn.Page != page) {
 			eTurn.Page = page;
 			eTurn.MyChange();
 			eGallery.Invalidate();
 			Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
-            
-            foreach (EControl con in base.Parent.Controls[0].Controls)
-            {
-                if (con is EGallery eg && eg.Name.Equals("grid"))
-                {
-                    eGallery = eg;
-                }
-                if (con is ETurn a && a.Name.Equals("PTurn"))
-                {
-                    eTurn = a;
-                }
-            }
-        }
 
-		foreach (ICell cell in eGallery.Cells) { 
+			foreach (EControl con in base.Parent.Controls[0].Controls)
+			{
+				if (con is EGallery eg && eg.Name.Equals("grid"))
+				{
+					eGallery = eg;
+				}
+				if (con is ETurn a && a.Name.Equals("PTurn"))
+				{
+					eTurn = a;
+				}
+			}
+		}
+
+		foreach (ICell cell in eGallery.Cells) {
 			if (cell.Name == nextId)
-            {
-                int n = eGallery.Cells.IndexOf(cell);
-                if (mode)
+			{
+				int n = eGallery.Cells.IndexOf(cell);
+				if (mode)
 				{
 					try
 					{
@@ -1332,128 +1356,128 @@ public class EPanelEx : EPanelBase
 					catch (Exception ex)
 					{
 						MessageBox.Show("切页错误" + ex.Message);
-                    }
-                    finally
-                    {
-                        eGallery.SetCurrent(n);
-                    }
-                }
+					}
+					finally
+					{
+						eGallery.SetCurrent(n);
+					}
+				}
 				else {
-                    eGallery.CurrentCell = eGallery.Cells[n];
-                }
-                break;
-            }
-        }
-    }
+					eGallery.CurrentCell = eGallery.Cells[n];
+				}
+				break;
+			}
+		}
+	}
 
 	private void ChangePage(EGallery eGallery, ETurn eTurn, string idName) {
 		bool mode = enableFunc("backSubmitEnable");
-        int currentNum = 0;
+		int currentNum = 0;
 		//string pageName = Page.GetInnerName().IsNullOrEmpty() ? Page.Name : Page.GetInnerName();
 		string currentName = idName;
-        //eGallery.CurrentCell != null ? eGallery.CurrentCell.Name : idName;
+		//eGallery.CurrentCell != null ? eGallery.CurrentCell.Name : idName;
 
-        List<ICell> cells = eGallery.Cells.ToList();
-        //cells.Sort((a, b)=> a.Name.CompareTo(b.Name));
-        foreach (ICell cell in cells)
-        {
-            if (cell.Name == currentName)
-            {
-                break;
-            }
-            currentNum++;
-        }
-        currentNum++;
-	
-        if (currentNum == cells.Count)
+		List<ICell> cells = eGallery.Cells.ToList();
+		//cells.Sort((a, b)=> a.Name.CompareTo(b.Name));
+		foreach (ICell cell in cells)
+		{
+			if (cell.Name == currentName)
+			{
+				break;
+			}
+			currentNum++;
+		}
+		currentNum++;
+
+		if (currentNum == cells.Count)
 		{
 			int p = eTurn.Page + 1;
 			eTurn.Page = p > eTurn.TotalPages ? 1 : p;
-		
+
 			if (eTurn.TotalPages == 1)
 			{
 				if (mode)
-                {
-                    eGallery.SetCurrent(0);
+				{
+					eGallery.SetCurrent(0);
 					EControl con = base.OnCreate(eGallery, cells[0].Name);
 					Page = con;
 					con.Load();
 
 				}
-                else {
-                    eGallery.CurrentCell = cells[0];
-                }
-            }
+				else {
+					eGallery.CurrentCell = cells[0];
+				}
+			}
 			else {
-                eTurn.MyChange();
+				eTurn.MyChange();
 				eGallery.Invalidate();
-                Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
-                // GC.Collect();
-            }
-        }
+				Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+				// GC.Collect();
+			}
+		}
 		else
 		{
-            int n = currentNum > cells.Count ? 0 : currentNum;
-            if (mode)
+			int n = currentNum > cells.Count ? 0 : currentNum;
+			if (mode)
 			{
 				eGallery.SetCurrent(n);
 				EControl con = base.OnCreate(eGallery, cells[n].Name);
 				Page = con;
 				con.Load();
 			}
-            else
+			else
 			{
-				
+
 				eGallery.CurrentCell = cells[n];
 			}
 
-            //this.CreatePage(eGallery, eGallery.Cells[n].Name);
+			//this.CreatePage(eGallery, eGallery.Cells[n].Name);
 
-        }
-    }
+		}
+	}
 
 	private static bool enableMenu(string name) {
 		if (!File.Exists("stock_config.json")) {
 			return false;
 		}
 
-        JsonObject jsonObject = JsonObject.Create(File.ReadAllText("stock_config.json"));
+		JsonObject jsonObject = JsonObject.Create(File.ReadAllText("stock_config.json"));
 		string menu = jsonObject.GetString("Menu");
 
-        return menu.IsNullOrEmpty() ? false :  menu.Contains(name);
-    }
+		return menu.IsNullOrEmpty() ? false : menu.Contains(name);
+	}
 
 
-    private static bool enableFunc(string name)
-    {
-        if (!File.Exists("stock_config.json"))
-        {
-            return false;
-        }
+	private static bool enableFunc(string name)
+	{
+		if (!File.Exists("stock_config.json"))
+		{
+			return false;
+		}
 
-        JsonObject jsonObject = JsonObject.Create(File.ReadAllText("stock_config.json"));
-        string value = jsonObject.GetString(name);
+		JsonObject jsonObject = JsonObject.Create(File.ReadAllText("stock_config.json"));
+		string value = jsonObject.GetString(name);
 
-        return value.IsNullOrEmpty() ? false : value == "true";
-    }
+		return value.IsNullOrEmpty() ? false : value == "true";
+	}
 
-    private static int GetFuncConfig(string name, int def = 30)
-    {
-        if (!File.Exists("stock_config.json"))
-        {
-            return def;
-        }
+	private static int GetFuncConfig(string name, int def = 20)
+	{
+		if (!File.Exists("stock_config.json"))
+		{
+			return def;
+		}
 
-        JsonObject jsonObject = JsonObject.Create(File.ReadAllText("stock_config.json"));
-        string value = jsonObject.GetString(name);
-        return value.IsNullOrEmpty() ? def : int.Parse(value);
-    }
+		JsonObject jsonObject = JsonObject.Create(File.ReadAllText("stock_config.json"));
+		string value = jsonObject.GetString(name);
+		return value.IsNullOrEmpty() ? def : int.Parse(value);
+	}
 
-    protected override void OnMouseClick(MouseEventArgs e)
+	protected override void OnMouseClick(MouseEventArgs e)
 	{
 		try
 		{
-            Point location = e.Location;
+			Point location = e.Location;
 			if (_rx.Contains(location))
 			{
 				Remove(_hover);
@@ -1468,33 +1492,33 @@ public class EPanelEx : EPanelBase
 				return;
 			}
 
-            switch (_sys.GetCommand())
+			switch (_sys.GetCommand())
 			{
-			case "min":
-				if (base.Parent is EFormOwner)
-				{
-					((EFormOwner)base.Parent).WindowState = FormWindowState.Minimized;
-				}
-				break;
-			case "max":
-				if (base.Parent is EFormOwner)
-				{
-					EFormOwner eFormOwner = base.Parent as EFormOwner;
-					if (eFormOwner.WindowState != FormWindowState.Maximized)
+				case "min":
+					if (base.Parent is EFormOwner)
 					{
-						eFormOwner.WindowState = FormWindowState.Maximized;
-						_sys["max"].DefaultImage = Icos.Get(IcoEnums.maxx);
+						((EFormOwner)base.Parent).WindowState = FormWindowState.Minimized;
 					}
-					else
+					break;
+				case "max":
+					if (base.Parent is EFormOwner)
 					{
-						eFormOwner.WindowState = FormWindowState.Normal;
-						_sys["max"].DefaultImage = Icos.Get(IcoEnums.max);
+						EFormOwner eFormOwner = base.Parent as EFormOwner;
+						if (eFormOwner.WindowState != FormWindowState.Maximized)
+						{
+							eFormOwner.WindowState = FormWindowState.Maximized;
+							_sys["max"].DefaultImage = Icos.Get(IcoEnums.maxx);
+						}
+						else
+						{
+							eFormOwner.WindowState = FormWindowState.Normal;
+							_sys["max"].DefaultImage = Icos.Get(IcoEnums.max);
+						}
 					}
-				}
-				break;
-			case "close":
-				OnClose();
-				break;
+					break;
+				case "close":
+					OnClose();
+					break;
 			}
 		}
 		catch
@@ -1504,37 +1528,37 @@ public class EPanelEx : EPanelBase
 
 	private async Task MyLoad(string text) {
 
-        //Detail.Sale sale = (Detail.Sale)Page;
+		//Detail.Sale sale = (Detail.Sale)Page;
 
-        //      //object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
-        //      object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+		//      //object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
+		//      object zClient = sale.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sale);
 
-        //if (zClient == null)
-        //{
-        //	MessageBox.Show("Collect ZClient is Null");
-        //	return;
-        //}
-        ////FieldInfo commandField = zClient.GetType().GetField("Command");
+		//if (zClient == null)
+		//{
+		//	MessageBox.Show("Collect ZClient is Null");
+		//	return;
+		//}
+		////FieldInfo commandField = zClient.GetType().GetField("Command");
 
-        //MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2] { typeof(string), typeof(string) }, null);
-        //object paraTask = posAsync.Invoke(zClient, new object[2] { "id", id });
+		//MethodInfo posAsync = zClient.GetType().GetMethod("PostAsync", BindingFlags.Instance | BindingFlags.Public, null, new Type[2] { typeof(string), typeof(string) }, null);
+		//object paraTask = posAsync.Invoke(zClient, new object[2] { "id", id });
 
-        //Task task2 = paraTask as Task;
-        //Type type2 = paraTask.GetType().GetGenericArguments()[0];
-        //await task2;
-        //object value2 = typeof(Task<>).MakeGenericType(type2).GetProperty("Result").GetValue(paraTask);
-        //      //sale.Reset();
-        //      //Thread.Sleep(100);
-        //      sale.Read((value2.GetType().GetField("RS").GetValue(value2) as RecordSet));
+		//Task task2 = paraTask as Task;
+		//Type type2 = paraTask.GetType().GetGenericArguments()[0];
+		//await task2;
+		//object value2 = typeof(Task<>).MakeGenericType(type2).GetProperty("Result").GetValue(paraTask);
+		//      //sale.Reset();
+		//      //Thread.Sleep(100);
+		//      sale.Read((value2.GetType().GetField("RS").GetValue(value2) as RecordSet));
 
-        RecordSet recordSet = RecordSet.From(File.ReadAllBytes(text));
-        ((Detail.Sale)Page).Read(recordSet);
-      
-        Invalidate();
+		RecordSet recordSet = RecordSet.From(File.ReadAllBytes(text));
+		((Detail.Sale)Page).Read(recordSet);
 
-    }
+		Invalidate();
 
-    protected override void OnMouseDoubleClick(MouseEventArgs e)
+	}
+
+	protected override void OnMouseDoubleClick(MouseEventArgs e)
 	{
 		if (IsForm && e.Location.Y < HeadHeight)
 		{
@@ -1627,26 +1651,29 @@ public class EPanelEx : EPanelBase
 					}
 				};
 			}
-            if (refreshBtn == null)
-            {
-                refreshBtn = new EButton();
-                refreshBtn.Name = "btn刷新";
-                refreshBtn.Text = "刷新";
-                refreshBtn.Size = new Size(40, 20);
-                refreshBtn.Location = new Point(point.X - 60, point.Y + 2);
-                refreshBtn.Visible = true;
-                refreshBtn.Enabled = true;
-                this.Controls.Add(refreshBtn);
-                refreshBtn.Click += refreshClick;
-            }
-        }
+			if (refreshBtn == null)
+			{
+				refreshBtn = new EButton();
+				refreshBtn.Name = "btn刷新";
+				refreshBtn.Text = "刷新";
+				if (enableFunc("Submit3") && enableFunc("SaveEnable")) {
+					refreshBtn.Text = "上传";
+				}
+				refreshBtn.Size = new Size(40, 20);
+				refreshBtn.Location = new Point(point.X - 60, point.Y + 2);
+				refreshBtn.Visible = true;
+				refreshBtn.Enabled = true;
+				this.Controls.Add(refreshBtn);
+				refreshBtn.Click += refreshClick;
+			}
+		}
 		else {
 
 			whiteBtn = null;
-            saveBtn = null;
-            submitBtn = null;
+			saveBtn = null;
+			submitBtn = null;
 			refreshBtn = null;
-        }
+		}
 
 		int headHeight = HeadHeight;
 		int borderLeft = base.BorderLeft;
@@ -1711,7 +1738,7 @@ public class EPanelEx : EPanelBase
 		}
 	}
 
-	private void GetAllSku(string fileName) {
+	private void GetAllSku(string fileName, bool showResult = true) {
 		int totalPage = 2;
 		long totalCount = 0;
 		int lastPage = -1;
@@ -1739,7 +1766,6 @@ public class EPanelEx : EPanelBase
 			eTurn.Page = i;
 			eTurn.MyChange();
 			eGallery.Invalidate();
-			//int time = GetFuncConfig("pageWaitMs", 1000);
 			Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
 			totalPage = eTurn.TotalPages;
 			IEnumerable<string> ids = eGallery.Cells.Select(c => c.Name);
@@ -1748,20 +1774,194 @@ public class EPanelEx : EPanelBase
 			File.AppendAllLines(fileName, ids);
 			if (i == totalPage)
 			{
-                eTurn.Page = lastPage;
-                eTurn.MyChange();
-                eGallery.Invalidate();
+				eTurn.Page = lastPage;
+				eTurn.MyChange();
+				eGallery.Invalidate();
+                Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
             }
 		}
-        MessageBox.Show($"已获取{totalPage}页,共{totalCount},请点击{fileName}查看结果", "确认");
-    }
 
+		if (showResult) {
+            MessageBox.Show($"已获取{totalPage}页,共{totalCount},请点击{fileName}查看结果", "确认");
+        }
+		
+	}
+
+
+
+	private void refreshClick(object sender, EventArgs e)
+	{
 	
+		if (enableFunc("Submit3") && enableFunc("SaveEnable"))
+		{
+            refreshBtn.Enabled = false;
+			refreshBtn.Text = "上传中...";
 
-    private void refreshClick(object sender, EventArgs e)
-    {
-		submitStatus = 0;
-		Page?.Load();
+            string filename = "submit-pic.txt";
+			GetAllSku(filename, false);
+			Thread.Sleep(GetFuncConfig("SaveWaitPageMill", 5000));
+			List<string> ids = File.ReadAllLines(filename).ToList();
+			File.Delete(filename);
+
+			Task.Run(() => uploadPic(ids));
+		}
+		else {
+            submitStatus = 0;
+            Page?.Load();
+        }
+	}
+
+	private async Task uploadPic(List<string> ids) {
+		string path = EImage.Get图片目录();
+        //     var parallelOptions = new ParallelOptions
+        //     {
+        //         MaxDegreeOfParallelism = GetFuncConfig("MaxThread", 100)
+        //     };
+        //     Parallel.ForEach(ids, parallelOptions, id => {
+        //JsonArray jsonArray = JsonArray.Create(File.ReadAllText(Path.Combine(path, id, "mapping.json")));
+        //Detail.Sale sale = (Detail.Sale)Page;
+        //sale.Load();
+
+        //sale.上传图片([], new ELayerScroll());
+        //     });
+        int size = 0;
+	
+        foreach (string id in ids) {
+			if (id.StartsWith("[Page"))
+			{
+				continue;
+			}
+            Detail.Sale sale = (Detail.Sale)Page;
+            this.Invoke(() => {
+				refreshBtn.Text = id;
+			
+                sale.Name = id;
+				sale.Load();
+            });
+            Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+            int errTime = 0;
+            while ((sale.Loading || !sale.Visible || !sale.Enabled) && errTime< 120)
+            {
+				errTime++;
+                Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+            }
+
+            EStockEdit tableTmp = null;
+            EButton buttonTmp = null;
+            EButton button2Tmp = null;
+            EText allTmp = null;
+            EPic picTmp = null;
+
+            //Server.Instance.Load(this);
+            foreach (EControl con in sale.Controls)
+            {
+                ETheme.Release(con);
+                if (con is EStockEdit eg && eg.Name.Equals("vtbl"))
+                {
+                    tableTmp = eg;
+                }
+                if (con is EButton btn1 && btn1.Name.Equals("btnSubmit1"))
+                {
+                    buttonTmp = btn1;
+                }
+                if (con is EButton btn2 && btn2.Name.Equals("btnBottom"))
+                {
+                    button2Tmp = btn2;
+                }
+                if (con is ECheck repeat && repeat.Name.Equals("chk清理重复"))
+                {
+                    repeat.Checked = true;
+                }
+                if (con is EPic epic && epic.Name.Equals("epic"))
+                {
+                    picTmp = epic;
+                }
+                if (con is Detail.SaleLayer sl && sl.Name.Equals("inner"))
+                {
+
+                    foreach (EControl con1 in sl.Controls)
+                    {
+
+                        if (con1 is ETextUnit tu && tu.Name.Equals("txtNum"))
+                        {
+
+                            foreach (EControl con2 in con1.Controls)
+                            {
+
+                                if (con2 is EText tu2)
+                                {
+                                    allTmp = tu2;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+
+                    }
+                }
+            }
+          
+            bool imgFunc = false;
+			List<EImage> eImages = new List<EImage>();
+            if (picTmp != null && enableFunc("SaveEnable"))
+            {
+                bool no_replaced = true;
+                while (no_replaced)
+                {
+                    foreach (EControl con in picTmp.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+                            if (OSS.IsFile(eImage.Url) && !File.Exists(eImage.Url))
+                            {
+
+                                //picTmp.OnRemove(eImage.Url);
+                            }
+                            else
+                            {
+                                this.Invoke(() =>
+                                {
+                                    eImage.MyReplace(id);
+                                });
+                                eImages.Add(eImage);
+                                size++;
+                            }
+                        }
+                    }
+                    no_replaced = false;
+
+                    foreach (EControl con in picTmp.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+							if (eImage.MyExist(id) &&!OSS.IsFile(eImage.Url))
+                            {
+								MessageBox.Show(id+"图片没有替换" + eImage.Url);
+                                no_replaced =true; //如果是远程图不存在就重来一遍
+                            }
+                        }
+                    }
+                    Thread.Sleep(100);
+
+                }
+                imgFunc = true;
+
+            }
+			if (eImages.Count > 0)
+			{
+
+                await sale.上传图片(eImages, _body);
+				sale.EndEdit();
+				MessageBox.Show("上传完成" + id + "个商品【" + eImages.Count() + "】张图片", "确认");
+			}
+        }
+		this.Invoke(() =>
+		{
+			refreshBtn.Enabled = true;
+			refreshBtn.Text = "上传";
+		});
+      
+        MessageBox.Show("提交完成:一共" + ids.Count + "个商品【" + size + "】张图片", "确认");
     }
 
 	private volatile int submitStatus = 0; //0-初始，1-提交过，2-检查通过
@@ -1816,7 +2016,8 @@ public class EPanelEx : EPanelBase
                     {
                         eTurn.Page = page;
                         eTurn.MyChange();
-                        eGallery.Invalidate();
+						eGallery.Load();
+                        //eGallery.Invalidate();
                         Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
                     }
                     continue;
@@ -1830,7 +2031,7 @@ public class EPanelEx : EPanelBase
                     //CreatePage(eGallery, id);
 
                 });
-               // Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+				Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
                 n++;
                 string idName = null;
                 int errorTime = 0;
@@ -1919,17 +2120,45 @@ public class EPanelEx : EPanelBase
                 bool imgFunc = false;
                 if (picTmp != null && enableFunc("SaveEnable"))
                 {
-                    foreach (EControl con in picTmp.Controls)
-                    {
-                        if (con is EImage eImage && eImage.Url.Length > 0)
-                        {
-                            this.Invoke(() =>
-                            {
-                                eImage.MyReplace(picTmp.Prefix);
-                            });
-                            size++;
-                        }
+					bool no_replaced = true;
+					while (no_replaced)
+					{
+						foreach (EControl con in picTmp.Controls)
+						{
+							if (con is EImage eImage && eImage.Url.Length > 0)
+							{
+								if (OSS.IsFile(eImage.Url) && !File.Exists(eImage.Url))
+								{
+
+									//picTmp.OnRemove(eImage.Url);
+								}
+								else
+								{
+									this.Invoke(() =>
+									{
+										eImage.MyReplace(picTmp.Prefix);
+									});
+									size++;
+
+								}
+							}
+						}
+						no_replaced = false;
+
+                        foreach (EControl con in picTmp.Controls)
+						{
+							if (con is EImage eImage && eImage.Url.Length > 0)
+							{
+								if (!OSS.IsFile(eImage.Url) && eImage.MyExist(idName)) {
+									no_replaced =true;
+                                }
+							}
+						}
+                        Thread.Sleep(100);
+
                     }
+
+
                     imgFunc = true;
 
                 }
@@ -2059,11 +2288,15 @@ public class EPanelEx : EPanelBase
                         {
                             //size++;
                             if (OSS.IsFile(eImage.Url))
-                            {
+                            {  
+								if (!File.Exists(eImage.Url)) {
+									continue;
+								}
+							   
 								i--;
                                 MessageBox.Show($"图片 {eImage.Url} 为本地状态，重新提交", "错误");
 								break;
-                            }
+                            } 
                             if (OSS.IsRemote(eImage.Url))
                             {
 								i--;
@@ -2074,7 +2307,7 @@ public class EPanelEx : EPanelBase
                     }
                 }
                 needProcessId.Add(idName2);
-                MessageBox.Show("提交完成[" + idName2 + "]，图片【" + size + "】个，变体【" + num + "】个", "确认");
+                MessageBox.Show("提交完成:[" + idName2 + "]，图片【" + size + "】个，变体【" + num + "】个", "确认");
             }
             catch (Exception ex)
             {
@@ -2311,6 +2544,9 @@ public class EPanelEx : EPanelBase
 						size++;
                         if (OSS.IsFile(eImage.Url))
                         {
+							if (!File.Exists(eImage.Url)) {
+								continue;
+							}
 							submiting++;
 							if (submiting > checkRetryLimit) {
                                 submitStatus = 0;
@@ -2364,18 +2600,47 @@ public class EPanelEx : EPanelBase
 				
                 return;
             }
-
-            bool imgFunc = false;
+			bool imgFunc = false;
 			if (picTmp != null && enableFunc("SaveEnable"))
 			{
-				foreach (EControl con in picTmp.Controls)
-				{
-					if (con is EImage eImage && eImage.Url.Length > 0)
-					{
-						eImage.MyReplace(picTmp.Prefix);
-						size++;
-					}
-				}
+                bool no_replaced = true;
+                while (no_replaced)
+                {
+                    foreach (EControl con in picTmp.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+                            if (OSS.IsFile(eImage.Url) && !File.Exists(eImage.Url))
+                            {
+
+                                //picTmp.OnRemove(eImage.Url);
+                            }
+                            else
+                            {
+                                this.Invoke(() =>
+                                {
+                                    eImage.MyReplace(picTmp.Prefix);
+                                });
+                                size++;
+
+                            }
+                        }
+                    }
+                    no_replaced = false;
+
+                    foreach (EControl con in picTmp.Controls)
+                    {
+                        if (con is EImage eImage && eImage.Url.Length > 0)
+                        {
+                            if (!OSS.IsFile(eImage.Url) && eImage.MyExist(idName))
+                            {
+                                no_replaced = true;
+                            }
+                        }
+                    }
+                    Thread.Sleep(100);
+
+                }
                 imgFunc = true;
 
             }

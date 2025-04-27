@@ -56,7 +56,6 @@ class SubmitService
                 try
                 {
                     processd = true;
-
                     if (Config.Enable("Submit2"))
                     {
                         //File.Delete(Config.GetDefault("FileSubmitPath", "submit.txt"));

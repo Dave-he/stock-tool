@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private static volatile bool _isProcessing = true;
     private SubmitService submitService;
     private BoswerListener boswerListener;
+    private MyUploadService uploadService;
 
 
     public MainWindow()
@@ -42,6 +43,8 @@ public partial class MainWindow : Window
         DialogBtn.Visibility = Visibility.Hidden;
         submitService = new SubmitService();
         submitService.StopEvent += SubmitStop;
+        uploadService = new MyUploadService();
+        uploadService.StopEvent += SubmitStop;
         DialogListener.Instance.StopEvent += SubmitStop; 
         if (!Config.Enable("SaveEnable")) { 
             SaveGrid.Visibility = Visibility.Hidden;
@@ -79,13 +82,28 @@ public partial class MainWindow : Window
         {
             SubmitBtn.Content = "图片提交";
             SubmitBtn2.Content = "库存提交";
-            submitService.Stop();
+            if (sender == SubmitBtn && Config.Enable("Submit3"))
+            {
+                uploadService.Stop();
+            }
+            else { 
+                submitService.Stop();
+            
+            }
+               
         }
         else {
 
             SubmitBtn.Content = "结束提交";
             SubmitBtn2.Content = "结束提交";
-            submitService.SubmitClick(sender, e);
+            if (sender == SubmitBtn && Config.Enable("Submit3"))
+            {
+                uploadService.UploadClick(sender, e);
+            }
+            else
+            {
+                submitService.SubmitClick(sender, e);
+            }
         }
         isSubmit = !isSubmit;
         try

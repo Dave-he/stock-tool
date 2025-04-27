@@ -31,8 +31,9 @@
             <!-- 横向排列的4个按钮 -->
             <StackPanel x:Name="SavePanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
                 <Button x:Name="BoswerBtn" Content="监听" Width="30" Visibility="Visible"/>
-                <!--<Button x:Name="SaveBtn" Content="保存检测"  Background="LightPink"  Width="65"/>-->
-                <Label Content=" 按页保存 > 人工P图 > " Opacity="0.75"  Background="White"></Label>
+                <Label Content=" 保存图片 " Opacity="0.75"  Background="White"></Label>
+                <!-- <Button x:Name="SaveBtn" Content="开始保存"  Background="LightPink"  Width="65"/>-->
+                <Label Content="> 人工P图 >" Opacity="0.75"  Background="White"></Label>
                 <Button x:Name="WhiteBtn" Content="本地白框" Background="LemonChiffon" Width="65"/>
                 <Label Content=" > " Opacity="0.75"    Background="White"></Label>
                 <Button x:Name="SubmitBtn" Content="图片提交"  Background="LightGreen" Width="65"  Click="SubmitBtn_Click"/>
