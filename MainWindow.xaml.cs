@@ -82,7 +82,7 @@ public partial class MainWindow : Window
         {
             SubmitBtn.Content = "图片提交";
             SubmitBtn2.Content = "库存提交";
-            if (sender == SubmitBtn && Config.Enable("Submit3"))
+            if ((sender == SubmitBtn || sender == SaveBtn) && Config.Enable("Submit3"))
             {
                 uploadService.Stop();
             }
@@ -98,7 +98,9 @@ public partial class MainWindow : Window
             SubmitBtn2.Content = "结束提交";
             if (sender == SubmitBtn && Config.Enable("Submit3"))
             {
-                uploadService.UploadClick(sender, e);
+                uploadService.UploadClick();
+            } else if (sender == SaveBtn && Config.Enable("Submit3")) {
+                uploadService.UploadClick("SaveBtn");
             }
             else
             {

@@ -13,9 +13,9 @@ internal class MyUploadService
 
     private volatile bool processd = false;
 
-    public void UploadClick(object sender, RoutedEventArgs e)
+    public void UploadClick(string buttonName = "RefreshBtn")
     {
-        e.Handled = true;
+       
         Logger.Info("开始处理所有....");
 
         try
@@ -57,8 +57,7 @@ internal class MyUploadService
 
                     DialogListener.Instance.Start(maxCount);
                     Thread.Sleep(200);
-                    Refresh(targetWindow);
-                    return;
+                    Click(targetWindow, buttonName);
 
                 }
                 catch (Exception ex)
@@ -108,10 +107,10 @@ internal class MyUploadService
         return rootElement.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, automationId));
     }
 
-    private AutomationElement Refresh(AutomationElement targetWindow)
+    private AutomationElement Click(AutomationElement targetWindow, string buttonName)
     {
         StockInput.PressEnter();
-        AutomationElement refreshButton = FindElementById(targetWindow, GetConfigValue("RefreshBtn"));
+        AutomationElement refreshButton = FindElementById(targetWindow, GetConfigValue(buttonName));
         if (refreshButton == null)
         {
             Logger.Info("未找到刷新按钮。");

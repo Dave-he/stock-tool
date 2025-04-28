@@ -174,7 +174,7 @@ class DialogListener
                 {
                     string text = textElement.Current.Name;
                     Logger.Debug($"对话框: {text}");
-                    if (text.StartsWith("提交完成:")) {
+                    if (text.StartsWith("提交完成;")) {
                         id = text.Split("[")[1].Split("]")[0].Trim();
                     }
 
