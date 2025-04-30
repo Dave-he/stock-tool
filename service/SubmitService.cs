@@ -292,7 +292,7 @@ class SubmitService
                 Logger.Info(resText);
             }
             Stop();
-            MessageBox.Show(resText);
+            MessageBox.Show(resText, "确认");
         }
         catch { }
 

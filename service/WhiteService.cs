@@ -84,7 +84,7 @@ class WhiteService
                 Parallel.ForEach(allFileLarge, parallelOptions, file => ProcessFile(file));
                 string resText = $"本地白框,处理完毕,共 {skus}个商品 {allFileLarge.Count()} 张图片";
                 Logger.Info(resText);
-                MessageBox.Show(resText);
+                MessageBox.Show(resText, "确认");
             }
             catch (UnauthorizedAccessException)
             {

@@ -96,12 +96,12 @@ class StockConfigService
                 {
                     string newJson = JsonSerializer.Serialize(stockList);
                     File.WriteAllText(StockFilePath, newJson);
-                    MessageBox.Show($"配置已改为 {stockTextBox.Text}");
+                    MessageBox.Show($"配置已改为 {stockTextBox.Text}", "信息");
                 }
             }
             else { 
                 File.WriteAllText(StockFilePath, $"[{{\"key\":\"num\",\"value\":\"{stockTextBox.Text}\"}}]");
-                MessageBox.Show($"配置已改为 {stockTextBox.Text}");
+                MessageBox.Show($"配置已改为 {stockTextBox.Text}", "信息");
             }
         }
         catch (Exception ex)

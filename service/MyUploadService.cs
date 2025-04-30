@@ -62,7 +62,7 @@ internal class MyUploadService
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"终止处理: {ex.Message}");
+                    MessageBox.Show($"终止处理: {ex.Message}", "错误");
                 }
             });
         }

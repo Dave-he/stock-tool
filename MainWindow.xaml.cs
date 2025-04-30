@@ -56,6 +56,11 @@ public partial class MainWindow : Window
         }
         KillBtn.Click += Kill_Click;
         boswerListener = new BoswerListener(BoswerBtn);
+        SaveBtn.IsEnabled = false;
+        if (Config.Enable("Save2") || Config.Enable("Save3")) {
+            SaveBtn.IsEnabled = true;
+            SaveBtn.Content = "预处理";
+        }
     }
 
     private void Kill_Click(object sender, RoutedEventArgs e)
@@ -82,7 +87,11 @@ public partial class MainWindow : Window
         {
             SubmitBtn.Content = "图片提交";
             SubmitBtn2.Content = "库存提交";
-            if ((sender == SubmitBtn || sender == SaveBtn) && Config.Enable("Submit3"))
+            if ((sender == SubmitBtn) && Config.Enable("Submit3"))
+            {
+                uploadService.Stop();
+            }
+            else if (sender == SaveBtn && Config.Enable("Save2"))
             {
                 uploadService.Stop();
             }
@@ -94,16 +103,19 @@ public partial class MainWindow : Window
         }
         else {
 
-            SubmitBtn.Content = "结束提交";
-            SubmitBtn2.Content = "结束提交";
+          
             if (sender == SubmitBtn && Config.Enable("Submit3"))
             {
                 uploadService.UploadClick();
-            } else if (sender == SaveBtn && Config.Enable("Submit3")) {
+            } else if (sender == SaveBtn && Config.Enable("Save2")) {
                 uploadService.UploadClick("SaveBtn");
             }
             else
             {
+                if (sender == SubmitBtn || sender == SubmitBtn2) {
+                    SubmitBtn.Content = "结束提交";
+                    SubmitBtn2.Content = "结束提交";
+                }
                 submitService.SubmitClick(sender, e);
             }
         }

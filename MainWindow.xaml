@@ -32,7 +32,7 @@
             <StackPanel x:Name="SavePanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="20,30,20,0" VerticalAlignment="Top">
                 <Button x:Name="BoswerBtn" Content="监听" Width="30" Visibility="Visible"/>
                 <Label Content=" " Opacity="0.75"  Background="White"></Label>
-                <Button x:Name="SaveBtn" Content="全部保存"  Background="LightPink"  Width="65"  Click="SubmitBtn_Click"/>
+                <Button x:Name="SaveBtn" Content="全部保存"  Background="LightPink"  Width="65" Click="SubmitBtn_Click"/>
                 <Label Content="> 人工P图 >" Opacity="0.75"  Background="White"></Label>
                 <Button x:Name="WhiteBtn" Content="本地白框" Background="LemonChiffon" Width="65"/>
                 <Label Content=" > " Opacity="0.75"    Background="White"></Label>
