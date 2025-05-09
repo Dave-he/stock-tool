@@ -1,5 +1,7 @@
 ﻿using stock_tool.common;
 using stock_tool.utils;
+using System;
+using System.CodeDom.Compiler;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -49,7 +51,7 @@ class WhiteService
                 await Task.Run(() =>
                 {
                     ZipFile.CreateFromDirectory(sourceFolder, zipFileName);
-                } );
+                });
                 Logger.Info($"压缩成功: {zipFileName}");
             }
         }
@@ -60,7 +62,8 @@ class WhiteService
     }
 
 
-    private async Task White() { 
+    private async Task White()
+    {
         // 获取用户输入的源文件夹路径
         string sourceFolder = Config.Get("ImagePath");
         if (!Directory.Exists(sourceFolder))
@@ -78,11 +81,10 @@ class WhiteService
             {
                 int skus = Directory.EnumerateDirectories(sourceFolder).Count();
                 List<string> allFileLarge = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories).ToList();
-                var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = GetParallelismBasedOnAvailableMemory()};
+                var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = GetParallelismBasedOnAvailableMemory() };
                 Parallel.ForEach(allFileLarge, parallelOptions, file => ProcessFile(file));
                 string resText = $"本地白框,处理完毕,共 {skus}个商品 {allFileLarge.Count()} 张图片";
                 Logger.Info(resText);
-                _btn.Content = "本地白框";
                 MessageBox.Show(resText, "确认");
             }
             catch (UnauthorizedAccessException)
@@ -94,6 +96,7 @@ class WhiteService
                 MessageBox.Show("指定的文件夹未找到。");
             }
         });
+        _btn.Content = "本地白框";
     }
 
     private void WhiteTest(object sender, RoutedEventArgs e)
@@ -132,20 +135,22 @@ class WhiteService
     {
         string fn = Path.GetFileName(filePath);
         string fp = Path.GetDirectoryName(filePath);
-        if (fn.StartsWith("白框.")) {
+        if (fn.StartsWith("白框."))
+        {
             return;
         }
-        
+
         int width = int.Parse(Config.Get("WhiteSize"));
         try
         {
             using (System.Drawing.Image image = System.Drawing.Image.FromFile(filePath))
             {
-                using (MemoryStream memoryStream = new MemoryStream()) {
+                using (MemoryStream memoryStream = new MemoryStream())
+                {
                     Save(memoryStream, 白框(image, width));
                     memoryStream.Seek(0L, SeekOrigin.Begin);
                     byte[] buffer = new byte[4096];
-                    string whiteFileName = Path.Combine(fp,  "白框."+fn);
+                    string whiteFileName = Path.Combine(fp, "白框." + fn);
 
                     using (FileStream fileStream = File.Open(whiteFileName, FileMode.Create, FileAccess.Write, FileShare.Read))
                     {
@@ -166,11 +171,11 @@ class WhiteService
         }
     }
 
+
     static int GetParallelismBasedOnAvailableMemory()
     {
-        // 获取系统的剩余内存
-        PerformanceCounter ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-        float availableMemory = ramCounter.NextValue();
+
+        float availableMemory = MemoryInfo.GetAvailableMemoryInMB();
 
         // 根据剩余内存设置不同的并行度
         if (availableMemory < 500)
@@ -187,7 +192,7 @@ class WhiteService
         }
         return Config.GetInt("MaxThread", 30);
     }
-    
+
 
 
     private void Save(Stream sr, System.Drawing.Image img)
@@ -235,7 +240,7 @@ class WhiteService
 
     internal static void Init(System.Windows.Controls.Button whiteBtn)
     {
-        if(_instance == null)
+        if (_instance == null)
         {
             _instance = new WhiteService(whiteBtn);
         }
