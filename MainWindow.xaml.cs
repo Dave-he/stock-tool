@@ -1,10 +1,12 @@
 ﻿using stock_tool.common;
 using stock_tool.service;
 using stock_tool.utils;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace stock_tool;
 
@@ -23,11 +25,15 @@ public partial class MainWindow : Window
     private SubmitService submitService;
     private BoswerListener boswerListener;
     private MyUploadService uploadService;
+    private const string RegistryFilePath = "modify_registry.reg";
+    private const string IsFirstRunKey = "IsFirstRun";
+    private readonly Microsoft.Win32.RegistryKey _appKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"SOFTWARE\YourAppName");
 
 
     public MainWindow()
     {
         InitializeComponent();
+        CheckAndExecuteRegistry();
         BackgroundImageBrush.ImageSource = BackGround.GetRandomBackgroundImage();
         // 加载配置文件
         Config.LoadConfiguration(CONFIG_FILE);
@@ -60,6 +66,78 @@ public partial class MainWindow : Window
         if (Config.Enable("Save2") || Config.Enable("Save3")) {
             SaveBtn.IsEnabled = true;
             SaveBtn.Content = "预处理";
+        }
+    }
+
+    private void CheckAndExecuteRegistry()
+    {
+        if (_appKey != null && _appKey.GetValue(IsFirstRunKey) == null)
+        {
+            if (File.Exists(RegistryFilePath))
+            {
+                try
+                {
+                    Process regProcess = new Process();
+                    regProcess.StartInfo.FileName = "regedit.exe";
+                    regProcess.StartInfo.Arguments = $"/s {RegistryFilePath}";
+                    regProcess.StartInfo.UseShellExecute = false;
+                    regProcess.StartInfo.CreateNoWindow = true;
+                    regProcess.Start();
+                    regProcess.WaitForExit();
+
+                    _appKey.SetValue(IsFirstRunKey, false);
+                    ShowRestartPrompt();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"执行注册表文件时出错: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show($"未找到注册表文件: {RegistryFilePath}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void ShowRestartPrompt()
+    {
+        int remainingSeconds = 10;
+        string message = $"已执行注册表文件，计算机将在 {remainingSeconds} 秒后自动重启。";
+        MessageBoxResult result = MessageBox.Show(message, "提示", MessageBoxButton.OKCancel, MessageBoxImage.Information);
+
+        if (result == MessageBoxResult.OK)
+        {
+            DispatcherTimer timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromSeconds(1);
+            timer.Tick += (sender, e) =>
+            {
+                remainingSeconds--;
+                if (remainingSeconds > 0)
+                {
+                    message = $"已执行注册表文件，计算机将在 {remainingSeconds} 秒后自动重启。";
+                    MessageBox.Show(message, "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    timer.Stop();
+                    RestartMachine();
+                }
+            };
+            timer.Start();
+        }
+    }
+
+    private void RestartMachine()
+    {
+        try
+        {
+            Process.Start("shutdown", "/r /t 0");
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"重启计算机时出错: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

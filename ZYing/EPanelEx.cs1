@@ -904,7 +904,7 @@ public class EPanelEx : EPanelBase
                 whiteBtn.Visible = true;
                 whiteBtn.Enabled = true;
                 this.Controls.Add(whiteBtn);
-                //whiteBtn.Click += whiteClick;
+                whiteBtn.Click += whiteClick;
             }
 
             if (saveBtn == null && enableFunc("SaveEnable"))
@@ -1032,11 +1032,12 @@ public class EPanelEx : EPanelBase
 	}
 
 
-	private async Task save4() {
+	private async Task save4(bool white) {
         int totalPage = 2;
         long totalCount = 0;
         int lastPage = -1;
 		long totalCount2 = 0;
+		List<string> lastIds = null;
 		for (int i = 1; i <= totalPage; i++)
 		{
 			ETurn eTurn = null;
@@ -1062,7 +1063,17 @@ public class EPanelEx : EPanelBase
 			Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
 			totalPage = eTurn.TotalPages;
 			List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
-			this.Invoke(() =>
+	
+            int errorTime = 0;
+            while (lastIds != null && Cotiains(ids, lastIds) && errorTime < 10)
+            {
+                //Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                eGallery.Invalidate();
+                Thread.Sleep(errorTime * GetFuncConfig("pageWaitMs", 1000));
+                ids = eGallery.Cells.Select(c => c.Name).ToList();
+                errorTime++;
+            }
+            this.Invoke(() =>
 			{
 				Page.Name = ids.First();
 				Page.Load();
@@ -1074,8 +1085,9 @@ public class EPanelEx : EPanelBase
                 Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
             }
             totalCount += ids.Count();
-            totalCount2 += await saveAll(ids, false, i);
-	
+			lastIds = ids;
+            totalCount2 += await saveAll(ids, false, i, white);
+		
             if (i == totalPage)
             {
                 eTurn.Page = lastPage;
@@ -1084,8 +1096,16 @@ public class EPanelEx : EPanelBase
                 Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
             }
         }
-		MessageBox.Show(this, $"保存完成，共{totalCount}个, {totalCount2}张图片");
+		MessageBox.Show(this, $"操作完成，共{totalCount}个, {totalCount2}张图片");
 
+    }
+
+	private void whiteClick(object sender, EventArgs e) {
+        if (Page == null || Page.Name.IsNullOrEmpty() || !enableMenu(base.Parent.Name))
+        {
+            return;
+        }
+        Task.Run(() => save4(true));
     }
 
 
@@ -1100,7 +1120,7 @@ public class EPanelEx : EPanelBase
 			 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 		if (res == DialogResult.Yes)
 		{
-			Task.Run(() => save4());
+			Task.Run(() => save4(false));
 		}
 		else { 
             List<string> ids = new List<string>();
@@ -1118,7 +1138,7 @@ public class EPanelEx : EPanelBase
     private const string SUBMIT = "submit.txt";
 
 
-    private async Task<int> saveAll(List<string> ids, bool show = true, int pageNum =1)
+    private async Task<int> saveAll(List<string> ids, bool show = true, int pageNum =1, bool white = false)
     {
         int pallelNum = GetFuncConfig("savePallelNum");
         object zClient = Page.GetType().BaseType.GetField("_zc", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Page);
@@ -1217,7 +1237,14 @@ public class EPanelEx : EPanelBase
 				try
 				{
 					int errTime = 0;
-					this.Invoke(() => saveBtn.Text = id);
+					if (white)
+					{
+                        this.Invoke(() => whiteBtn.Text = id);
+                    }
+					else {
+                        this.Invoke(() => saveBtn.Text = id);
+                    }
+						
 					RecordSet set = null;
 					JsonArray root = null;
 					while ((set == null || set.Count <= 0 || root == null) && errTime < 120)
@@ -1238,6 +1265,7 @@ public class EPanelEx : EPanelBase
 								errTime++;
 								this.Invoke(() =>
 								{
+									Page.Name = id;
 									Page?.Load();
 								});
                                 
@@ -1300,7 +1328,8 @@ public class EPanelEx : EPanelBase
 						catch (Exception e)
 						{
 							File.AppendAllLines(logpath + "text.error", [e.Message]);
-							if(e.Message.Contains("数据不合法")){
+							if(e.Message.Contains("数据不合法") || e.Message.Contains("数据不匹配"))
+                            {
 								throw e;
 							}
 						}
@@ -1343,7 +1372,14 @@ public class EPanelEx : EPanelBase
 							{
 								EImage img = eImages[tasks.Count];
 								img.Url = line;
-								tasks.Add(img.MySave(id));
+								if (white)
+								{
+                                    tasks.Add(img.MyWhite(id));
+                                }
+								else {
+                                    tasks.Add(img.MySave(id));
+                                }
+								
 							}
 							else
 							{
@@ -1351,7 +1387,14 @@ public class EPanelEx : EPanelBase
 								tasks.Clear();
 								EImage img = eImages[0];
                                 img.Url = line;
-                                tasks.Add(img.MySave(id));
+								if (white)
+								{
+									tasks.Add(img.MyWhite(id));
+								}
+								else {
+                                    tasks.Add(img.MySave(id));
+                                }
+									
                             }
 						}
 					}
@@ -1363,10 +1406,38 @@ public class EPanelEx : EPanelBase
 				{
 
 					File.AppendAllLines(logpath + "text.error", [ex.Message]);
-					if (ex.Message.Contains("数据不合法")) {
-						string fn = Path.Combine(EImage.Get图片目录(), id, "error.txt");
-						File.WriteAllText(fn, ex.Message);
-					}
+					if (ex.Message.Contains("数据不合法") || ex.Message.Contains("数据不匹配")) {
+						string fn = Path.Combine(EImage.Get图片目录(), id);
+						File.AppendAllLines(fn + "/error.txt", [ex.Message]);
+                        this.Invoke(() =>
+                        {
+                            Page.Name = id;
+                            Page?.Load();
+                        });
+
+                        Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                        Detail.Sale sale = (Detail.Sale)Page;
+                        while (sale.Loading || !sale.Visible || !sale.Enabled)
+                        {
+                            Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                        }
+                        eImages.Clear();
+                        foreach (EControl con in Page.Controls)
+                        {
+                            if (con is EPic epic && epic.Name.Equals("epic"))
+                            {
+                                picTmp = epic;
+                                foreach (Control control in picTmp.Controls)
+                                {
+                                    if (control is EImage eImage && eImage.Url.Length > 0)
+                                    {
+                                        eImages.Add(eImage);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
 				}
             }
           
@@ -1386,20 +1457,26 @@ public class EPanelEx : EPanelBase
             }
             ids = notProcess;
         }
-       
-        this.Invoke(() => saveBtn.Text = "保存");
+
+		if (white)
+		{
+            this.Invoke(() => whiteBtn.Text = "白框");
+        }
+		else {
+            this.Invoke(() => saveBtn.Text = "保存");
+        }
+		
 		if (show)
 		{
 			if (errorMsg.IsNullOrEmpty())
 			{
-				MessageBox.Show(this, $"保存成功！\n 共处理{total}个商品,共{count} 张图片", "信息");
+				MessageBox.Show(this, $"操作成功！\n 共处理{total}个商品,共{count} 张图片", "信息");
 			}
 			else
 			{
               //  File.AppendAllLines(logpath + "text.error", [ex.Message]);
-                MessageBox.Show(this, $"部分未保存请检查！\n " +
-					errorMsg +
-					$"共处理{total}个商品,共{count} 张图片,\n请点击下一页进行保存.", "错误");
+                MessageBox.Show(this, $"部分未保存请检查！\n " + errorMsg +
+					$"共处理{total}个商品,共{count} 张图片,\n请点击image查看.", "错误");
 			}
 		}
 		return count;
@@ -1781,6 +1858,7 @@ public class EPanelEx : EPanelBase
 
 
     private static bool first = true;
+	private volatile bool paging = false;
     private async Task submit2()
     {
 
@@ -1791,8 +1869,10 @@ public class EPanelEx : EPanelBase
 
         if (!File.Exists(SUBMIT))
         {
+			paging = true;
             first = false;
             GetAllSku(SUBMIT);
+			paging = false;
             return;
         }
         if (first)
@@ -1804,7 +1884,9 @@ public class EPanelEx : EPanelBase
         {
             first = true;
         }
-
+		while (paging) {
+			Thread.Sleep(100);
+		}
 
         List<string> ids = [.. File.ReadAllLines(SUBMIT)];
         int count = ids.Where(c => !c.StartsWith("[Page")).Count();
@@ -1860,7 +1942,7 @@ public class EPanelEx : EPanelBase
         int totalPage = 2;
         long totalCount = 0;
         int lastPage = -1;
-
+		List<string> lastIds = null;
         for (int i = 1; i <= totalPage; i++)
         {
             ETurn eTurn = null;
@@ -1886,8 +1968,19 @@ public class EPanelEx : EPanelBase
             eGallery.Invalidate();
             Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
             totalPage = eTurn.TotalPages;
-            IEnumerable<string> ids = eGallery.Cells.Select(c => c.Name);
+            List<string> ids = eGallery.Cells.Select(c => c.Name).ToList();
+            int errorTime = 0;
+            while (lastIds != null && Cotiains(ids, lastIds) && errorTime < 10)
+            {
+                //Thread.Sleep(GetFuncConfig("pageWaitMs", 1000));
+                eGallery.Invalidate();
+                Thread.Sleep(errorTime * GetFuncConfig("pageWaitMs", 1000));
+                ids = eGallery.Cells.Select(c => c.Name).ToList();
+                errorTime++;
+            }
+
             totalCount += ids.Count();
+			lastIds = ids;
             File.AppendAllLines(fileName, [$"[Page:{i}][Size:{ids.Count()}][TotalPage:{totalPage}]"]);
             File.AppendAllLines(fileName, ids);
             if (i == totalPage)
@@ -1900,6 +1993,17 @@ public class EPanelEx : EPanelBase
         }
     }
 
+	private static bool Cotiains(List<string> src, List<string> target) {
+		if (src.Count <= 0) {
+			return false;
+		}
+		foreach (string id in src) {
+			if (target.Contains(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 
     private static bool enableMenu(string name)

@@ -1,5 +1,6 @@
 ﻿using stock_tool.common;
 using stock_tool.utils;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -77,13 +78,11 @@ class WhiteService
             {
                 int skus = Directory.EnumerateDirectories(sourceFolder).Count();
                 List<string> allFileLarge = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories).ToList();
-                var parallelOptions = new ParallelOptions
-                {
-                    MaxDegreeOfParallelism = Config.GetInt("MaxThread", 100)
-                };
+                var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = GetParallelismBasedOnAvailableMemory()};
                 Parallel.ForEach(allFileLarge, parallelOptions, file => ProcessFile(file));
                 string resText = $"本地白框,处理完毕,共 {skus}个商品 {allFileLarge.Count()} 张图片";
                 Logger.Info(resText);
+                _btn.Content = "本地白框";
                 MessageBox.Show(resText, "确认");
             }
             catch (UnauthorizedAccessException)
@@ -95,7 +94,6 @@ class WhiteService
                 MessageBox.Show("指定的文件夹未找到。");
             }
         });
-        _btn.Content = "本地白框";
     }
 
     private void WhiteTest(object sender, RoutedEventArgs e)
@@ -132,6 +130,12 @@ class WhiteService
 
     private void ProcessFile(string filePath)
     {
+        string fn = Path.GetFileName(filePath);
+        string fp = Path.GetDirectoryName(filePath);
+        if (fn.StartsWith("白框.")) {
+            return;
+        }
+        
         int width = int.Parse(Config.Get("WhiteSize"));
         try
         {
@@ -141,7 +145,9 @@ class WhiteService
                     Save(memoryStream, 白框(image, width));
                     memoryStream.Seek(0L, SeekOrigin.Begin);
                     byte[] buffer = new byte[4096];
-                    using (FileStream fileStream = File.Open(filePath + ".白框", FileMode.Create, FileAccess.Write, FileShare.Read))
+                    string whiteFileName = Path.Combine(fp,  "白框."+fn);
+
+                    using (FileStream fileStream = File.Open(whiteFileName, FileMode.Create, FileAccess.Write, FileShare.Read))
                     {
                         int count;
                         while ((count = memoryStream.Read(buffer, 0, 4096)) > 0)
@@ -151,14 +157,37 @@ class WhiteService
                     }
                 }
             }
-            File.Delete(filePath);
-            File.Move(filePath + ".白框", filePath);
+            //File.Delete(filePath);
+            //File.Move(filePath + ".白框", filePath);
         }
         catch (Exception ex)
         {
             Logger.Error($"处理图片文件 {filePath} 时出错: {ex.Message}");
         }
     }
+
+    static int GetParallelismBasedOnAvailableMemory()
+    {
+        // 获取系统的剩余内存
+        PerformanceCounter ramCounter = new PerformanceCounter("Memory", "Available MBytes");
+        float availableMemory = ramCounter.NextValue();
+
+        // 根据剩余内存设置不同的并行度
+        if (availableMemory < 500)
+        {
+            return 1;
+        }
+        else if (availableMemory < 1024)
+        {
+            return 2;
+        }
+        else if (availableMemory < 2048)
+        {
+            return 8;
+        }
+        return Config.GetInt("MaxThread", 30);
+    }
+    
 
 
     private void Save(Stream sr, System.Drawing.Image img)

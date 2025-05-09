@@ -761,16 +761,26 @@ public class EImage : EControl
         }
 
         string fileName = GetFileName();
-        string path = Path.Combine(dir, fileName);
-        if (!File.Exists(path))
+        string text = Path.Combine(dir, "白框." + fileName);
+        if (File.Exists(text))
         {
-            return false;
+            string old = _url;
+            Url = text;
+            this.Replacing?.Invoke(old, _url);
+            return true;
         }
 
-        string url = _url;
-        Url = path;
-        this.Replacing?.Invoke(url, _url);
-        return true;
+
+        string path = Path.Combine(dir, fileName);
+        if (File.Exists(path))
+        {
+            string url = _url;
+            Url = path;
+            this.Replacing?.Invoke(url, _url);
+            return true;
+        }
+		return false;
+    
     }
 
 
@@ -930,6 +940,32 @@ public class EImage : EControl
 			await 白框ing(text, 弹出: false);
 		}
 	}
+
+	public async Task MyWhite(string id) {
+        while (string.IsNullOrEmpty(_url) || _img == null)
+        {
+			Thread.Sleep(100);
+        }
+        if (base.Parent is EPic ePic)
+        {
+			ePic.Prefix = id;
+        }
+    
+        string dir = Get图片目录();
+		if (dir.Length <= 0)
+		{
+			return;
+		}
+        string fileName = GetFileName();
+        string path = Path.Combine(dir, fileName);
+		if (File.Exists(path))
+		{
+            _url = path;
+            this.Replacing?.Invoke(_originUrl, path);
+        }
+        await 白框ing(dir, 弹出: false);
+       
+    }
 
 	public async Task 白框ing(string dir, bool 弹出)
 	{
