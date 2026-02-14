@@ -1,0 +1,2132 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using ZYing.Data;
+using ZYing.Interface;
+
+namespace ZYing.UI;
+
+public class ETable : EControlScroll, ISource
+{
+	public static EMenu Menu多行;
+
+	public static EMenu Menu复制整列;
+
+	public Action<ETColumn> OrderChanged;
+
+	public Action<ETRow> RowDoubleClick;
+
+	public Action<ETRow> RowCreating;
+
+	public Action<ETRow, ETRowEventArgs> RowChanged;
+
+	public Action<ETRow, Record> RowSetting;
+
+	public Action<ETRow> RowPicked;
+
+	public Action<ETRow> EnterPressed;
+
+	public Func<ETRow, ETColumn, ETCell> CellCreating;
+
+	public Action<ETCell> CellClick;
+
+	public Action<ETCellOP, UIcon> CellOPClick;
+
+	public Action<ETCellCheck> CellChecked;
+
+	public Action<ETCell> CellEndEdit;
+
+	private readonly ETColumnCollection _cols;
+
+	private ETRowCollection _rows;
+
+	public int LimitRowCount;
+
+	public bool IsAutoScrollIntoView = true;
+
+	private Size _lblsi;
+
+	private string _lbl = "";
+
+	private Color _labelColor = Color.Empty;
+	 
+	private Font _lblfont = ETheme.微软雅黑;
+
+	private CheckState _state;
+
+	private int _minheight = 250;
+
+	private bool _integralHeight = true;
+
+	private int _headerHeight;
+
+	private bool _showHeader = true;
+
+	private bool _showFooter;
+
+	private bool _showBorder;
+
+	private DashStyle _dash;
+
+	private EControl _extra;
+
+	private EPanelBase _detail;
+
+	private ETCellImages _dragCell;
+
+	private ETCellImages _moveCell;
+
+	private ETCell _currentCell;
+
+	private ETRow _hoverRow;
+
+	private ETRow _currentRow;
+
+	private TextBoxJoin _txtJoin;
+
+	private TextBoxNoMenu _txt;
+
+	private int _rowHeight;
+
+	private int _count;
+
+	private int _maxcount;
+
+	private ETRowFooter _footer;
+
+	private MyDown _mydown;
+
+	[Category("设计")]
+	[DefaultValue(EFonts.微软雅黑Large)]
+	public override EFonts Fonts
+	{
+		get
+		{
+			return base.Fonts;
+		}
+		set
+		{
+			if (base.Fonts != value)
+			{
+				base.Fonts = value;
+			}
+		}
+	}
+
+	public new int Top => LabelTopHeight + HeaderHeight + (_showBorder ? 1 : 0);
+
+	public override Rectangle DisplayRectangle
+	{
+		get
+		{
+			int num = (_showBorder ? 1 : 0);
+			int num2 = LabelTopHeight + HeaderHeight;
+			int num3 = base.Width - (base.ScrollVisible ? 11 : 0);
+			return new Rectangle(num, num2 + num, num3 - num * 2, base.Height - num2 - FooterHeight - num * 2 - 1);
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue("")]
+	public string Label
+	{
+		get
+		{
+			return _lbl;
+		}
+		set
+		{
+			if (_lbl != value)
+			{
+				_lbl = value;
+				_lblsi = Size.Empty;
+				Invalidate();
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public Color LabelColor
+	{
+		get
+		{
+			return _labelColor;
+		}
+		set
+		{
+			if (_labelColor != value)
+			{
+				_labelColor = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public Font LabelFont
+	{
+		get
+		{
+			return _lblfont;
+		}
+		set
+		{
+			if (_lblfont != value)
+			{
+				_lblfont = value;
+				_lblsi = Size.Empty;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("设计")]
+	public Size LabelSize
+	{
+		get
+		{
+			if (_lblsi.IsEmpty)
+			{
+				int num = _lbl.IndexOf('\n');
+				string txt = ((num > -1) ? _lbl.Substring(0, num) : _lbl);
+				_lblsi = EPaint.MeasureText(txt, _lblfont);
+			}
+			return _lblsi;
+		}
+	}
+
+	private int LabelTopHeight
+	{
+		get
+		{
+			if (!string.IsNullOrEmpty(_lbl))
+			{
+				return _lblfont.Height + 5;
+			}
+			return 0;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public CheckState CheckedState
+	{
+		get
+		{
+			return _state;
+		}
+		set
+		{
+			if (_state != value)
+			{
+				_state = value;
+				Invalidate();
+			}
+		}
+	}
+
+	public int PickCount
+	{
+		get
+		{
+			int num = 0;
+			foreach (ETRow row in _rows)
+			{
+				if (row.Visible && row.Picked)
+				{
+					num++;
+				}
+			}
+			return num;
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(250)]
+	public int MinHeight
+	{
+		get
+		{
+			return _minheight;
+		}
+		set
+		{
+			_minheight = Math.Max(value, _headerHeight);
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(true)]
+	public bool IntegralHeight
+	{
+		get
+		{
+			return _integralHeight;
+		}
+		set
+		{
+			_integralHeight = value;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public int HeaderHeight
+	{
+		get
+		{
+			if (!_showHeader)
+			{
+				return 0;
+			}
+			return _headerHeight;
+		}
+		set
+		{
+			_headerHeight = value;
+		}
+	}
+
+	public int FooterHeight
+	{
+		get
+		{
+			if (!_showFooter)
+			{
+				return 0;
+			}
+			return _rowHeight + 1;
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(true)]
+	public bool ShowHeader
+	{
+		get
+		{
+			return _showHeader;
+		}
+		set
+		{
+			if (_showHeader != value)
+			{
+				_showHeader = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool ShowFooter
+	{
+		get
+		{
+			return _showFooter;
+		}
+		set
+		{
+			if (_showFooter != value)
+			{
+				_showFooter = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool ShowBorder
+	{
+		get
+		{
+			return _showBorder;
+		}
+		set
+		{
+			if (_showBorder != value)
+			{
+				_showBorder = value;
+				Invalidate();
+			}
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(DashStyle.Solid)]
+	public DashStyle LineStyle
+	{
+		get
+		{
+			return _dash;
+		}
+		set
+		{
+			if (_dash != value)
+			{
+				_dash = value;
+				Invalidate();
+			}
+		}
+	}
+
+	public bool DetailSelectable
+	{
+		get
+		{
+			if (_detail == null)
+			{
+				return RowChanged != null;
+			}
+			return true;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public virtual ETColumnCollection Columns => _cols;
+
+	public ETRowCollection Rows
+	{
+		get
+		{
+			return _rows;
+		}
+		set
+		{
+			if (_rows != value && value != null && value.Table == this)
+			{
+				_rows = value;
+				_maxcount = (_count = value.Count);
+			}
+		}
+	}
+
+	public ETRow[] RowsPick
+	{
+		get
+		{
+			List<ETRow> list = new List<ETRow>();
+			foreach (ETRow row in _rows)
+			{
+				if (row.Picked)
+				{
+					list.Add(row);
+				}
+			}
+			return list.ToArray();
+		}
+	}
+
+	public string[] keysPick
+	{
+		get
+		{
+			List<string> list = new List<string>();
+			foreach (ETRow row in _rows)
+			{
+				if (row.Picked && !string.IsNullOrEmpty(row.Key))
+				{
+					list.Add(row.Key);
+				}
+			}
+			return list.ToArray();
+		}
+	}
+
+	public ETRow FirstRow
+	{
+		get
+		{
+			if (_rows.Count != 0)
+			{
+				return _rows[0];
+			}
+			return null;
+		}
+	}
+
+	public ETRow LastRow
+	{
+		get
+		{
+			if (_rows.Count != 0)
+			{
+				return _rows[_rows.Count - 1];
+			}
+			return null;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public new Padding Padding
+	{
+		get
+		{
+			return base.xPadding;
+		}
+		set
+		{
+			base.xPadding = value;
+			_rowHeight = base.FontHeight + value.Vertical;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public virtual EControl Extra
+	{
+		get
+		{
+			return _extra;
+		}
+		set
+		{
+			_extra = value;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public EPanelBase DetailPage
+	{
+		get
+		{
+			return _detail;
+		}
+		set
+		{
+			_detail = value;
+			_detail.Removed += detail_Removed;
+			_detail.Changed += detail_Changed;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public ETCellImages DragCell
+	{
+		get
+		{
+			return _dragCell;
+		}
+		set
+		{
+			if (_dragCell != value)
+			{
+				if (_dragCell != null)
+				{
+					_dragCell.DragIndex = -1;
+				}
+				_dragCell = value;
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public ETCellImages MoveCell
+	{
+		get
+		{
+			return _moveCell;
+		}
+		set
+		{
+			if (_moveCell != value)
+			{
+				if (_moveCell != null)
+				{
+					_moveCell.MoveIndex = -1;
+				}
+				_moveCell = value;
+			}
+		}
+	}
+
+	public bool IsDragging
+	{
+		get
+		{
+			if (_dragCell != null)
+			{
+				return _moveCell != null;
+			}
+			return false;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public ETCell CurrentCell
+	{
+		get
+		{
+			return _currentCell;
+		}
+		set
+		{
+			if (_currentCell != value)
+			{
+				EndEdit();
+				_currentCell = value;
+				if (_detail == null && !DetailSelectable && _currentRow != value.Row)
+				{
+					_currentRow = value.Row;
+					Invalidate();
+				}
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	internal ETRow HoverRow
+	{
+		get
+		{
+			return _hoverRow;
+		}
+		set
+		{
+			if (_hoverRow != value)
+			{
+				if (_hoverRow != null)
+				{
+					_hoverRow.Leave();
+				}
+				_hoverRow = value;
+				if (_hoverRow != null)
+				{
+					_hoverRow.Invalidate();
+				}
+			}
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public ETRow CurrentRow
+	{
+		get
+		{
+			return _currentRow;
+		}
+		set
+		{
+			if (_currentRow != value)
+			{
+				EndEdit();
+				doDetail(value);
+			}
+		}
+	}
+
+	public TextBoxJoin TextJoin
+	{
+		get
+		{
+			if (_txtJoin == null)
+			{
+				_txtJoin = new TextBoxJoin
+				{
+					MaximumSize = new Size(200, 20),
+					Visible = false
+				};
+				_txtJoin.KeyPress += _txtJoin_KeyPress;
+				base.Controls.Add(_txtJoin);
+			}
+			return _txtJoin;
+		}
+	}
+
+	public TextBoxNoMenu TextBox
+	{
+		get
+		{
+			if (_txt == null)
+			{
+				_txt = new TextBoxNoMenu
+				{
+					Font = ETheme.微软雅黑,
+					BorderStyle = BorderStyle.None,
+					Visible = false
+				};
+				_txt.KeyDown += txt_KeyDown;
+				_txt.KeyPress += txt_KeyPress;
+				_txt.KeyUp += txt_KeyUp;
+				_txt.MouseDown += Txt_MouseDown;
+				base.Controls.Add(_txt);
+			}
+			return _txt;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public int RowHeight
+	{
+		get
+		{
+			return _rowHeight;
+		}
+		set
+		{
+			_rowHeight = value;
+		}
+	}
+
+	[Category("设计")]
+	[DefaultValue(false)]
+	public bool ColumnGridLines { get; set; }
+
+	[Category("设计")]
+	[DefaultValue(true)]
+	public bool RowGridLines { get; set; }
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public int Count
+	{
+		get
+		{
+			return _count;
+		}
+		set
+		{
+			if (value < 0)
+			{
+				value = 0;
+			}
+			if (_count != value)
+			{
+				base.ScrollMax = (_count = value);
+			}
+		}
+	}
+
+	public ETColumn OrderColumn
+	{
+		get
+		{
+			foreach (ETColumn column in Columns)
+			{
+				if (column.Order == OrderBy.ASC || column.Order == OrderBy.DESC)
+				{
+					return column;
+				}
+			}
+			return null;
+		}
+	}
+
+	public string OrderString
+	{
+		get
+		{
+			foreach (ETColumn column in Columns)
+			{
+				if (column.Order == OrderBy.ASC || column.Order == OrderBy.DESC)
+				{
+					return column.Fld + ((column.Order == OrderBy.DESC) ? " desc" : "");
+				}
+			}
+			return null;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public int MaxCount
+	{
+		get
+		{
+			return _maxcount;
+		}
+		set
+		{
+			_maxcount = value;
+		}
+	}
+
+	public ETRowFooter Footer
+	{
+		get
+		{
+			if (_footer == null)
+			{
+				_footer = new ETRowFooter(this);
+			}
+			return _footer;
+		}
+	}
+
+	[Browsable(false)]
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public Record DataSource
+	{
+		set
+		{
+			SetSource(value);
+		}
+	}
+
+	     
+
+        // 可选：标记位，避免重复设置（非必需）
+    private static bool _licenseSet = false;
+
+
+    static ETable()
+	{
+		
+
+        if (!_licenseSet)
+		{
+			ExcelPackage.License.SetNonCommercialPersonal("ZYing");
+			_licenseSet = true;
+		}
+
+		Menu多行 = new EMenu
+		{
+			Font = ETheme.微软雅黑Small,
+			Items = new EItemCollection(new EItem(IcoEnums.copy, "copy1", "复制第一行"), new EItem(IcoEnums.copy, "copy2", "复制第二行"), new EItem(IcoEnums.move, "copy1-all", "整列复制第一行"), new EItem(IcoEnums.move, "copy2-all", "整列复制第二行"))
+		};
+		Menu多行.SelectedChanged += delegate(object sender, EItemArgs e)
+		{
+			if (Menu多行.Tag is ETCellMulti eTCellMulti)
+			{
+				switch (e.Key)
+				{
+				case "copy1":
+					Clipboard.SetDataObject(eTCellMulti.Text);
+					break;
+				case "copy2":
+					Clipboard.SetDataObject(eTCellMulti.SubText);
+					break;
+				case "copy1-all":
+				{
+					List<string> list2 = new List<string>();
+					foreach (ETRow row in eTCellMulti.Table.Rows)
+					{
+						ETCellMulti eTCellMulti3 = (ETCellMulti)row.Cells[eTCellMulti.Name];
+						if (!eTCellMulti3.Text.IsNullOrEmpty())
+						{
+							list2.Add(eTCellMulti3.Text);
+						}
+					}
+					if (list2.Count > 0)
+					{
+						Clipboard.SetDataObject(Arrays.Join(list2, "\r\n"));
+					}
+					break;
+				}
+				case "copy2-all":
+				{
+					List<string> list = new List<string>();
+					foreach (ETRow row2 in eTCellMulti.Table.Rows)
+					{
+						ETCellMulti eTCellMulti2 = (ETCellMulti)row2.Cells[eTCellMulti.Name];
+						if (!eTCellMulti2.SubText.IsNullOrEmpty())
+						{
+							list.Add(eTCellMulti2.SubText);
+						}
+					}
+					if (list.Count > 0)
+					{
+						Clipboard.SetDataObject(Arrays.Join(list, "\r\n"));
+					}
+					break;
+				}
+				}
+			}
+		};
+		Menu复制整列 = new EMenu
+		{
+			Font = ETheme.微软雅黑Small,
+			Items = new EItemCollection(new EItem(IcoEnums.copy, "copy", "复制"), new EItem(IcoEnums.move, "copy-all", "整列复制"))
+		};
+		Menu复制整列.SelectedChanged += Menu复制整列_SelectedChanged;
+	}
+
+	private static void Menu复制整列_SelectedChanged(object sender, EItemArgs e)
+	{
+		if (!(Menu复制整列.Tag is ETCell eTCell))
+		{
+			return;
+		}
+		string key = eTCell.Column.Key;
+		string key2 = e.Key;
+		if (!(key2 == "copy"))
+		{
+			if (!(key2 == "copy-all"))
+			{
+				return;
+			}
+			HashSet<string> hashSet = new HashSet<string>();
+			foreach (ETRow row in eTCell.Table.Rows)
+			{
+				string text = row[key];
+				if (!text.IsNullOrEmpty())
+				{
+					hashSet.Add(text);
+				}
+			}
+			if (hashSet.Count > 0)
+			{
+				Clipboard.SetDataObject(Arrays.Join(hashSet, "\r\n"));
+			}
+		}
+		else
+		{
+			Clipboard.SetDataObject(eTCell.Text);
+		}
+	}
+
+	public ETable()
+	{
+		base.Padding = new Padding(7, 6, 7, 6);
+		base.Fonts = EFonts.微软雅黑Large;
+		base.Icon = Icos.Get(IcoEnums.find);
+		_rowHeight = base.FontHeight + base.xPadding.Vertical;
+		_headerHeight = _rowHeight + 1;
+		_cols = new ETColumnCollection(this);
+		_rows = new ETRowCollection(this);
+		ColumnGridLines = false;
+		RowGridLines = true;
+	}
+
+	protected override void OnScroll(ScrollEventArgs e)
+	{
+		EndEdit();
+		Invalidate();
+	}
+
+	public void ScrollIntoView()
+	{
+		int num = IndexOf(_currentRow);
+		if (num >= 0 && num < _rows.Count && (num < base.ScrollValue || num >= base.ScrollValue + base.LargeChange))
+		{
+			int num2 = num - base.LargeChange / 2 + 1;
+			if (num2 < 0)
+			{
+				num2 = 0;
+			}
+			base.ScrollValue = num2;
+		}
+	}
+
+	public int IndexOf(ETRow tr)
+	{
+		if (tr == null)
+		{
+			return -1;
+		}
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i] == tr)
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	public void Pick(bool ok)
+	{
+		foreach (ETRow row in _rows)
+		{
+			if (row.Visible)
+			{
+				row.Picked = ok;
+			}
+		}
+		CheckedState = (ok ? CheckState.Checked : CheckState.Unchecked);
+		OnRowPicked(null);
+	}
+
+	public List<string> GetTexts(string col)
+	{
+		List<string> list = new List<string>();
+		foreach (ETRow row in _rows)
+		{
+			string text = row[col];
+			if (!string.IsNullOrEmpty(text) && !list.Contains(text))
+			{
+				list.Add(text);
+			}
+		}
+		return list;
+	}
+
+	public List<string> GetCurs(string col)
+	{
+		List<string> list = new List<string>();
+		foreach (ETRow row in _rows)
+		{
+			if (row.Cells[col] is ETCellMoney eTCellMoney && !list.Contains(eTCellMoney.Cur))
+			{
+				list.Add(eTCellMoney.Cur);
+			}
+		}
+		return list;
+	}
+
+	public string[] SamePics(string colName)
+	{
+		if (Rows.Count == 0)
+		{
+			return new string[0];
+		}
+		ETRow eTRow = Rows[0];
+		if (!(eTRow.Cells[colName] is ETCellImages eTCellImages))
+		{
+			return new string[0];
+		}
+		List<string> list = new List<string>(eTCellImages.Urls);
+		foreach (ETRow row in Rows)
+		{
+			if (row == eTRow || !(row.Cells[colName] is ETCellImages { Urls: var urls }))
+			{
+				continue;
+			}
+			for (int num = list.Count - 1; num >= 0; num--)
+			{
+				string text = list[num];
+				if (!urls.ContainsIgnore(text))
+				{
+					list.RemoveAt(num);
+				}
+			}
+			if (list.Count == 0)
+			{
+				break;
+			}
+		}
+		return list.ToArray();
+	}
+
+	private void detail_Removed(EControl ec)
+	{
+		if (ec == null || (_currentRow != null && _currentRow.Key == ec.Name))
+		{
+			CurrentRow = null;
+		}
+	}
+
+	private void detail_Changed(EControl ec)
+	{
+		CurrentRow = Rows.Find(ec.Name);
+	}
+
+	private void doDetail(ETRow tr)
+	{
+		if (base.InvokeRequired)
+		{
+			Invoke(new Action<ETRow>(doDetail), tr);
+			return;
+		}
+		ETRow currentRow = _currentRow;
+		_currentRow = tr;
+		if (!OnRowChanged(tr) && _detail != null)
+		{
+			if (tr != null)
+			{
+				if (!string.IsNullOrEmpty(tr.Key))
+				{
+					_detail.CreatePage(this, tr.Key);
+				}
+			}
+			else if (currentRow != null && currentRow.Key == _detail.Name)
+			{
+				_detail.Remove(currentRow.Key);
+			}
+		}
+		Invalidate();
+	}
+
+	private void _txtJoin_KeyPress(object sender, KeyPressEventArgs e)
+	{
+		if (e.KeyChar == '\u001b')
+		{
+			Cancel();
+			hideText();
+			e.Handled = true;
+		}
+	}
+
+	private void Txt_MouseDown(object sender, MouseEventArgs e)
+	{
+		if (e.Button == MouseButtons.Right && sender is TextBoxNoMenu { Tag: ETCell tag } textBoxNoMenu)
+		{
+			tag.EndEdit();
+			Point location = e.Location;
+			Point point = EControl.PointToParent(textBoxNoMenu, location);
+			MouseEventArgs e2 = new MouseEventArgs(e.Button, e.Clicks, point.X, point.Y, e.Delta);
+			tag.ContextMenu(e2);
+		}
+	}
+
+	private void txt_KeyDown(object sender, KeyEventArgs e)
+	{
+		switch (e.KeyCode)
+		{
+		case Keys.Up:
+			MovePrevRow();
+			e.Handled = true;
+			break;
+		case Keys.Down:
+			MoveNextRow();
+			e.Handled = true;
+			break;
+		case Keys.Left:
+			if (_txt.SelectionStart == 0)
+			{
+				MoveLeftCell();
+			}
+			e.Handled = true;
+			break;
+		case Keys.Right:
+			if (_txt.SelectionLength > 0 || _txt.Text.Length == 0)
+			{
+				MoveRightCell();
+			}
+			e.Handled = true;
+			break;
+		}
+	}
+
+	private void txt_KeyPress(object sender, KeyPressEventArgs e)
+	{
+		switch (e.KeyChar)
+		{
+		case '\u0001':
+			_txt.SelectAll();
+			e.Handled = true;
+			break;
+		case '\r':
+			EndEdit();
+			e.Handled = true;
+			break;
+		case '\u001b':
+			Cancel();
+			hideText();
+			e.Handled = true;
+			break;
+		}
+	}
+
+	private void txt_KeyUp(object sender, KeyEventArgs e)
+	{
+		if (_currentCell is ETCellSelectCombo)
+		{
+			(_currentCell.Column.Editor as EList).Filter(_txt.Text.Trim());
+		}
+	}
+
+	public void ResetOrder()
+	{
+		if (OrderColumn != null)
+		{
+			OrderColumn.Order = OrderBy.None;
+		}
+	}
+
+	protected virtual void SetSource(Record re)
+	{
+		try
+		{
+			EndEdit();
+			if (_showFooter && _footer == null)
+			{
+				_footer = new ETRowFooter(this);
+			}
+			_maxcount = ((re != null) ? Math.Max(re.Count, re.MaxCount) : 0);
+			base.ScrollMax = (_count = re?.Count ?? 0);
+			if (_count > Rows.Count)
+			{
+				for (int i = _rows.Count; i < _count; i++)
+				{
+					ETRow tr = new ETRow(this);
+					_rows.Add(tr, changeRow: false);
+				}
+			}
+			else if (_count < _rows.Count)
+			{
+				int count = _rows.Count - _count;
+				_rows.RemoveRange(_count, count);
+			}
+			if (_count > 0)
+			{
+				_cols.Reset();
+				while (re.Read())
+				{
+					ETRow eTRow = _rows[re.Cursor];
+					if (!eTRow.Visible)
+					{
+						eTRow.Visible = true;
+					}
+					eTRow.Read(re);
+				}
+			}
+			_currentCell = null;
+			_currentRow = null;
+			StartLoad();
+			Task.Run((Action)SetFinish);
+		}
+		catch (Exception)
+		{
+		}
+	}
+
+	private void SetFinish()
+	{
+		try
+		{
+			Pick(ok: false);
+			base.ScrollValue = 0;
+			Adjust();
+			if (_detail != null && _detail.Page != null)
+			{
+				_currentRow = (_detail.Visible ? Rows.Find(_detail.Page.Name) : null);
+			}
+			if (AutoVisible && _count == 0)
+			{
+				SetVisible(ok: false);
+				return;
+			}
+			SetVisible(ok: true);
+			MyResize();
+		}
+		catch (Exception)
+		{
+		}
+	}
+
+	public ETRow CreateRow()
+	{
+		return new ETRow(this);
+	}
+
+	public void StartLoad(bool needLoad = true)
+	{
+		try
+		{
+			if (!needLoad || !base.Visible)
+			{
+				return;
+			}
+			Queue<IThumb> queue = new Queue<IThumb>();
+			for (int i = 0; i < _rows.Count; i++)
+			{
+				ETRow eTRow = _rows[i];
+				if (!eTRow.Visible)
+				{
+					continue;
+				}
+				for (int j = 0; j < eTRow.Cells.Count; j++)
+				{
+					if (eTRow.Cells[j] is ETCellImage { Thumb: var thumb } && thumb.NeedLoad)
+					{
+						queue.Enqueue(thumb);
+					}
+				}
+			}
+			if (queue.Count > 0)
+			{
+				if (_mydown == null)
+				{
+					_mydown = new MyDown();
+				}
+				_mydown.Start(queue);
+			}
+		}
+		catch
+		{
+		}
+	}
+
+	protected override void OnVisibleChanged(EventArgs e)
+	{
+		if (base.Visible)
+		{
+			StartLoad();
+		}
+	}
+
+	public override void EndEdit()
+	{
+		if (base.Visible)
+		{
+			hideText();
+			if (_currentCell != null)
+			{
+				_currentCell.EndEdit();
+			}
+		}
+	}
+
+	private void hideText()
+	{
+		if (_txt != null && _txt.Visible)
+		{
+			if (_txt.InvokeRequired)
+			{
+				_txt.Invoke(hideText);
+			}
+			else
+			{
+				_txt.Visible = false;
+			}
+		}
+	}
+
+	public override void Cancel()
+	{
+		if (_currentCell != null)
+		{
+			ETCell currentCell = _currentCell;
+			_currentCell = null;
+			currentCell.Cancel();
+		}
+	}
+
+	public override void Reset()
+	{
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			_rows[i].Reset();
+		}
+		Count = _rows.Count;
+		base.ScrollValue = 0;
+		Invalidate();
+	}
+
+	public void Append(Record re)
+	{
+		Rows.Add(re);
+	}
+
+	public void Insert(Record re)
+	{
+		Rows.Insert(re);
+	}
+
+	public void Update(string key, Record re)
+	{
+		Rows.Find(key)?.Update(re);
+	}
+
+	public void Remove(string key)
+	{
+		Rows.Remove(key);
+	}
+
+	public int Sum(string name)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			num += Valid.ToInt(_rows[i][name]);
+		}
+		return num;
+	}
+
+	public bool IsMatch(string value, params string[] cols)
+	{
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].IsMatch(value, cols))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void Match(string value, params string[] cols)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].Match(value, cols))
+			{
+				num++;
+			}
+		}
+		Count = num;
+		base.ScrollValue = 0;
+		if (AutoHeight)
+		{
+			OnResize(EventArgs.Empty);
+		}
+		else
+		{
+			Invalidate();
+		}
+	}
+
+	public void Equal(bool value, string col)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].Equal(value, col))
+			{
+				num++;
+			}
+		}
+		Count = num;
+		base.ScrollValue = 0;
+		if (AutoHeight)
+		{
+			OnResize(EventArgs.Empty);
+		}
+		else
+		{
+			Invalidate();
+		}
+	}
+
+	public void Equal(int value, string col)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].Equal(value, col))
+			{
+				num++;
+			}
+		}
+		Count = num;
+		base.ScrollValue = 0;
+		if (AutoHeight)
+		{
+			OnResize(EventArgs.Empty);
+		}
+		else
+		{
+			Invalidate();
+		}
+	}
+
+	public void NotEqual(int value, string col)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].NotEqual(value, col))
+			{
+				num++;
+			}
+		}
+		Count = num;
+		base.ScrollValue = 0;
+		if (AutoHeight)
+		{
+			OnResize(EventArgs.Empty);
+		}
+		else
+		{
+			Invalidate();
+		}
+	}
+
+	public void LikeOrEmpty(string word, string col)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].LikeOrEmpty(word, col))
+			{
+				num++;
+			}
+		}
+		Count = num;
+		base.ScrollValue = 0;
+		if (AutoHeight)
+		{
+			OnResize(EventArgs.Empty);
+		}
+		else
+		{
+			Invalidate();
+		}
+	}
+
+	public void Like(string word, params string[] cols)
+	{
+		int num = 0;
+		for (int i = 0; i < _rows.Count; i++)
+		{
+			if (_rows[i].Like(word, cols))
+			{
+				num++;
+			}
+		}
+		Count = num;
+		base.ScrollValue = 0;
+		if (AutoHeight)
+		{
+			OnResize(EventArgs.Empty);
+		}
+		else
+		{
+			Invalidate();
+		}
+	}
+
+	public void MoveLeftCell()
+	{
+		if (_currentCell != null)
+		{
+			ETCell prev = _currentCell.Prev;
+			if (prev != null)
+			{
+				_currentCell.EndEdit();
+				prev.Focus();
+			}
+		}
+	}
+
+	public void MoveRightCell()
+	{
+		if (_currentCell != null)
+		{
+			ETCell next = _currentCell.Next;
+			if (next != null)
+			{
+				_currentCell.EndEdit();
+				next.Focus();
+			}
+		}
+	}
+
+	public void MovePrevRow()
+	{
+		if (_currentRow == null)
+		{
+			return;
+		}
+		ETRow prev = _currentRow.Prev;
+		if (prev != null)
+		{
+			string name = null;
+			if (_currentCell != null)
+			{
+				_currentCell.EndEdit();
+				name = _currentCell.Name;
+			}
+			CurrentRow = prev;
+			prev.Cells[name]?.Focus();
+		}
+	}
+
+	public void MoveNextRow()
+	{
+		if (_currentRow == null)
+		{
+			return;
+		}
+		ETRow next = _currentRow.Next;
+		if (next != null)
+		{
+			string name = null;
+			if (_currentCell != null)
+			{
+				_currentCell.EndEdit();
+				name = _currentCell.Name;
+			}
+			CurrentRow = next;
+			next.Cells[name]?.Focus();
+		}
+	}
+
+	protected override bool ProcessDialogKey(Keys key)
+	{
+		switch (key)
+		{
+		case Keys.Up:
+			MovePrevRow();
+			return true;
+		case Keys.Down:
+			MoveNextRow();
+			return true;
+		default:
+			return base.ProcessDialogKey(key);
+		}
+	}
+
+	public virtual void OnRowDoubleClick(ETRow tr)
+	{
+		if (RowDoubleClick != null)
+		{
+			EndEdit();
+			RowDoubleClick(tr);
+		}
+	}
+
+	public virtual bool OnRowChanged(ETRow tr)
+	{
+		ETRowEventArgs e = new ETRowEventArgs();
+		RowChanged?.Invoke(tr, e);
+		return e.Handled;
+	}
+
+	public virtual void OnRowCreating(ETRow tr)
+	{
+		RowCreating?.Invoke(tr);
+	}
+
+	public virtual void OnRowSetting(ETRow tr, Record re)
+	{
+		RowSetting?.Invoke(tr, re);
+	}
+
+	public virtual void OnRowPicked(ETRow tr)
+	{
+		RowPicked?.Invoke(tr);
+	}
+
+	public virtual void OnCellEndEdit(ETCell c)
+	{
+		CellEndEdit?.Invoke(c);
+	}
+
+	public virtual void OnCellChecked(ETCellCheck c)
+	{
+		CellChecked?.Invoke(c);
+	}
+
+	public virtual void OnCellOPClick(ETCellOP c, UIcon ico)
+	{
+		EndEdit();
+		CellOPClick?.Invoke(c, ico);
+	}
+
+	public virtual void OnCellClick(ETCell c)
+	{
+		EndEdit();
+		CellClick?.Invoke(c);
+	}
+
+	public override void MyResize()
+	{
+		if (base.InvokeRequired)
+		{
+			Invoke(new Action<EventArgs>(OnResize), EventArgs.Empty);
+		}
+		else
+		{
+			OnResize(EventArgs.Empty);
+		}
+	}
+
+	protected override void OnResize(EventArgs e)
+	{
+		EndEdit();
+		int num = (_showBorder ? 1 : 0);
+		int num2 = _rowHeight + 1;
+		int num3 = LabelTopHeight + HeaderHeight;
+		base.ScrollMargin = new Padding(0, num3 + num, num, FooterHeight + num);
+		int num4;
+		if (!AutoHeight)
+		{
+			num4 = ((!_integralHeight) ? base.Height : ((base.Height - num3 - FooterHeight) / num2 * num2 + num3 + FooterHeight + num * 2));
+		}
+		else
+		{
+			num4 = _count * num2 + num3 + FooterHeight + num * 2;
+			if (base.MaxHeight > 0 && num4 > base.MaxHeight)
+			{
+				num4 = base.MaxHeight;
+			}
+			if (_count == 0 || num4 < _minheight)
+			{
+				num4 = _minheight;
+			}
+		}
+		if (base.Height != num4)
+		{
+			base.Height = num4;
+			return;
+		}
+		base.LargeChange = (int)Math.Round((double)(num4 - num3 - FooterHeight - num * 2) / (double)num2);
+		base.OnResize(EventArgs.Empty);
+		if (DisplayRectangle.Width != _cols.Width)
+		{
+			Adjust();
+		}
+		if (IsAutoScrollIntoView)
+		{
+			ScrollIntoView();
+		}
+	}
+
+	public void Adjust()
+	{
+		if (base.InvokeRequired)
+		{
+			Invoke(Adjust);
+			return;
+		}
+		_cols.Adjust();
+		foreach (ETRow row in Rows)
+		{
+			foreach (ETCell cell in row.Cells)
+			{
+				cell.Adjust();
+			}
+		}
+		Invalidate();
+	}
+
+	protected override void OnGotFocus(EventArgs e)
+	{
+		Select();
+		base.OnGotFocus(e);
+	}
+
+	protected override void OnLeave(EventArgs e)
+	{
+		HoverRow = null;
+		EndEdit();
+	}
+
+	protected override void OnPaintBackground(PaintEventArgs e)
+	{
+		base.OnPaintBackground(e);
+		Graphics graphics = e.Graphics;
+		graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+		ETheme current = ETheme.Current;
+		_ = Padding;
+		if (_lbl.Length > 0)
+		{
+			Color color = ((!Enabled) ? current.ColorTextGray : ((!(_labelColor != Color.Empty)) ? current.ColorText : _labelColor));
+			int height = LabelSize.Height;
+			EPaint.DrawText(r: new Rectangle(0, 0, base.Width, height), g: graphics, txt: _lbl, font: _lblfont, color: color);
+		}
+	}
+
+	protected override void OnPaint(PaintEventArgs e)
+	{
+		try
+		{
+			Graphics graphics = e.Graphics;
+			ETheme current = ETheme.Current;
+			base.OnPaint(e);
+			_ = DisplayRectangle;
+			if (_showHeader)
+			{
+				int labelTopHeight = LabelTopHeight;
+				Rectangle rectangle = new Rectangle(0, labelTopHeight, base.Width, _headerHeight - 1);
+				if (base.DesignMode || rectangle.IntersectsWith(e.ClipRectangle))
+				{
+					Color color = EPaint.Lighten(current.ColorBackDark, 8);
+					using (Brush brush = EPaint.CreateLinearGradient(rectangle, LinearGradientMode.Vertical, color, current.ColorBackDark, color))
+					{
+						graphics.FillRectangle(brush, rectangle);
+					}
+					foreach (ETColumn col in _cols)
+					{
+						col.Draw(graphics, labelTopHeight);
+					}
+					if (_showBorder)
+					{
+						using Pen pen = new Pen((BorderColor == Color.Empty) ? current.ColorBorder : BorderColor);
+						graphics.DrawLine(pen, 0, rectangle.Bottom - 1, base.Width - 1, rectangle.Bottom - 1);
+					}
+				}
+			}
+			if (_count == 0)
+			{
+				if (!_showBorder)
+				{
+					using Pen pen2 = new Pen(ETheme.Current.ColorGrid);
+					graphics.DrawLine(pen2, 0, base.Height - 1, base.Width - 1, base.Height - 1);
+				}
+				if (!string.IsNullOrEmpty(base.Text))
+				{
+					int height = base.Height;
+					if (height >= 200)
+					{
+						int num = 0;
+						int num2 = 0;
+						Image icon = base.Icon;
+						if (icon == null)
+						{
+							num2 = base.Height / 2 - ((height > 250) ? base.FontHeight : 0) - 10;
+						}
+						else
+						{
+							num = (base.Width - icon.Width) / 2;
+							num2 = (base.Height - icon.Height) / 2 - ((height > 250) ? base.FontHeight : 0) - 10;
+							graphics.DrawImage(icon, num, num2, icon.Width, icon.Height);
+							num2 += icon.Height + 20;
+						}
+						num = (base.Width - TextWidth) / 2;
+						EPaint.DrawText(graphics, base.Text, ETheme.微软雅黑Large, current.ColorTextGray, new Point(num, num2));
+					}
+					else
+					{
+						int fontHeight = base.FontHeight;
+						Rectangle r = new Rectangle(0, Top + (base.Height - Top - fontHeight) / 2 - ((height > 100) ? 5 : 0), base.Width, fontHeight);
+						EPaint.DrawText(graphics, base.Text, Font, current.ColorTextGray, r, IntTextFormatFlags.HorizontalCenter);
+					}
+				}
+			}
+			else
+			{
+				Rectangle clipRectangle = e.ClipRectangle;
+				int scrollValue = base.ScrollValue;
+				int num3 = scrollValue + base.LargeChange;
+				int num4 = 0;
+				for (int i = 0; i < _rows.Count; i++)
+				{
+					ETRow eTRow = _rows[i];
+					if (eTRow.Visible)
+					{
+						if (num4 >= num3)
+						{
+							break;
+						}
+						if (num4 >= scrollValue)
+						{
+							eTRow.Draw(graphics, clipRectangle, num4);
+						}
+						num4++;
+					}
+				}
+				if (_footer != null)
+				{
+					_footer.Draw(graphics, clipRectangle, num4);
+				}
+			}
+			if (_showBorder)
+			{
+				int labelTopHeight2 = LabelTopHeight;
+				EPaint.DrawBox(graphics, new Rectangle(0, labelTopHeight2, base.Width - 1, base.Height - labelTopHeight2 - 1), (BorderColor == Color.Empty) ? current.ColorBorder : BorderColor, Color.Empty, base.Enabled);
+			}
+		}
+		catch
+		{
+		}
+	}
+
+	protected override void OnMouseWheel(MouseEventArgs e)
+	{
+		if (!base.ScrollVisible)
+		{
+			return;
+		}
+		if (e.Delta < 0)
+		{
+			if (base.ScrollMax > base.ScrollValue + 1)
+			{
+				base.ScrollValue++;
+			}
+			else
+			{
+				base.ScrollValue = base.ScrollMax;
+			}
+		}
+		else if (base.ScrollValue > 1)
+		{
+			base.ScrollValue--;
+		}
+		else
+		{
+			base.ScrollValue = 0;
+		}
+	}
+
+	protected override void OnMouseMove(MouseEventArgs e)
+	{
+		try
+		{
+			base.OnMouseMove(e);
+			if (base.ScrollState != EScrollState.None)
+			{
+				return;
+			}
+			if (e.Y < Top)
+			{
+				if (e.Button == MouseButtons.None)
+				{
+					HoverRow = null;
+					Cursor = Cursors.Hand;
+				}
+				return;
+			}
+			Cursor = Cursors.Hand;
+			int scrollValue = base.ScrollValue;
+			int num = scrollValue + base.LargeChange;
+			int num2 = 0;
+			for (int i = 0; i < _rows.Count; i++)
+			{
+				ETRow eTRow = _rows[i];
+				if (eTRow.Visible)
+				{
+					if (num2 >= num)
+					{
+						break;
+					}
+					if (num2 >= scrollValue && eTRow.Hover(e.Location))
+					{
+						HoverRow = eTRow;
+						_hoverRow.Move(e);
+						return;
+					}
+					num2++;
+				}
+			}
+			if (_footer != null && _footer.Hover(e.Location))
+			{
+				HoverRow = _footer;
+			}
+			else
+			{
+				HoverRow = null;
+			}
+		}
+		catch
+		{
+		}
+	}
+
+	protected override void OnMouseDown(MouseEventArgs e)
+	{
+		base.OnMouseDown(e);
+		if (base.ScrollState != EScrollState.None)
+		{
+			return;
+		}
+		if (e.Y < Top)
+		{
+			EndEdit();
+			{
+				foreach (ETColumn column in Columns)
+				{
+					if (column.Visible && column.Contains(e.X))
+					{
+						column.Down();
+					}
+				}
+				return;
+			}
+		}
+		if (e.Y < base.Height)
+		{
+			if (_currentCell != null && e.Button == MouseButtons.Right)
+			{
+				_currentCell.EndEdit();
+			}
+			if (_hoverRow != null)
+			{
+				_hoverRow.Down(e);
+			}
+			else if (_currentRow != null)
+			{
+				EndEdit();
+			}
+		}
+	}
+
+	protected override void OnMouseClick(MouseEventArgs e)
+	{
+		if (e.Y < Top)
+		{
+			if (e.Y > LabelTopHeight)
+			{
+				if (e.X < Width / 3 &&
+					this.Parent != null && this.Parent.Parent != null &&
+					this.Parent.Parent.Name.StartsWith("Amz") && this.Parent.Parent.Name.Contains("选品库List")) {
+					this.exportExcel();
+				}
+
+                ETColumn eTColumn = _cols.Click(e);
+				if (eTColumn != null)
+				{
+					Invalidate(new Rectangle(0, 0, base.Width, Top));
+					OrderChanged?.Invoke(eTColumn);
+				}
+			}
+		}
+		else if (e.Y < base.Height && _hoverRow != null)
+		{
+			_hoverRow.Click(e);
+		}
+	}
+
+	private void exportExcel() {
+
+        // 1. 初始化DataTable
+        var csvData = new List<List<string?>>();
+
+        var headData = new List<string?>();
+        foreach (ETColumn col in this.Columns)
+		{
+            headData.Add(col.Title );
+        }
+		csvData.Add(headData);
+        // 遍历你的Rows和Cells
+        foreach (ETRow etRow in this.Rows)
+        {
+            var rowData = new List<string?>();
+            foreach (ETCell cell in etRow.Cells)
+            {
+                rowData.Add(cell.Text);
+            }
+            csvData.Add(rowData);
+        }
+        ExportToCsv(csvData, "/ZYing-Excel/"+ this.Parent.Parent.Name + "_" + DateTime.Now.ToString("yyyyMMddHHmmss")+ ".csv");
+    }
+
+   
+    /// <summary>
+    /// 原生导出CSV文件（Excel可直接打开）.NET 6适配版
+    /// </summary>
+    /// <param name="data">要导出的数据（二维列表）</param>
+    /// <param name="filePath">保存路径</param>
+    void ExportToCsv(List<List<string?>> data, string filePath)
+    {
+        // 校验参数（适配.NET 6的参数校验习惯）
+        ArgumentNullException.ThrowIfNull(data, nameof(data));
+        
+
+        if (data.Count == 0)
+            throw new ArgumentException("导出数据不能为空", nameof(data));
+
+        // 创建目录（如果不存在）
+        string directory = Path.GetDirectoryName(filePath)!; // ! 抑制Nullable警告（路径合法时非null）
+        if (!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+
+        // 使用UTF8带BOM编码（避免Excel打开中文乱码）
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+        using var sw = new StreamWriter(fs, new UTF8Encoding(true));
+
+        // 遍历每一行数据
+        foreach (var row in data)
+        {
+            var cells = new List<string>();
+            foreach (var cell in row)
+            {
+                string processedCell = cell ?? ""; // 处理null值
+                if (processedCell.Contains(","))
+                {
+                    processedCell = $"\"{processedCell}\""; // 含逗号则包裹双引号
+                }
+                cells.Add(processedCell);
+            }
+
+            // 拼接一行数据并写入
+            string line = string.Join(",", cells);
+            sw.WriteLine(line);
+        }
+		OpenFileInExplorer(filePath);
+    }
+
+
+    /// <summary>
+    /// 将相对路径转为绝对路径，打开文件管理器并高亮选中该文件
+    /// </summary>
+    /// <param name="relativeFilePath">文件相对路径（如：./ExcelFiles/test.xlsx、../Temp/report.pdf）</param>
+    /// <param name="baseDirectory">可选：相对路径的基准目录（默认用程序运行目录，更稳定）</param>
+    /// <exception cref="FileNotFoundException">文件不存在时抛出</exception>
+    public static void OpenFileInExplorer(string relativeFilePath, string baseDirectory = null)
+    {
+        // 1. 确定基准目录（优先用程序运行目录，不受工作目录切换影响）
+        string basePath = string.IsNullOrEmpty(baseDirectory)
+            ? AppDomain.CurrentDomain.BaseDirectory  // 推荐：程序输出目录（如 bin/Debug/net6.0）
+            : baseDirectory;
+
+        // 2. 拼接并转换为绝对路径（核心：自动处理 ./、../、空格等）
+        string absoluteFilePath = Path.GetFullPath(Path.Combine(basePath, relativeFilePath));
+
+        // 3. 校验文件是否存在
+        if (!File.Exists(absoluteFilePath))
+        {
+            throw new FileNotFoundException($"找不到指定文件！相对路径：{relativeFilePath} → 解析后的绝对路径：{absoluteFilePath}");
+        }
+
+        // 4. 打开文件管理器并高亮选中文件（关键参数：/select, "绝对路径"）
+        try
+        {
+            Process.Start(new ProcessStartInfo()
+            {
+                FileName = "explorer.exe",
+                // 格式：/select, "文件绝对路径"（逗号后必须加空格，否则失效！）
+                Arguments = $"/select, \"{absoluteFilePath}\"",
+                UseShellExecute = true, // .NET Core 3.0+ 必须显式设为 true
+                WindowStyle = ProcessWindowStyle.Normal // 正常显示文件管理器窗口
+            });
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"打开文件管理器失败：{ex.Message}", ex);
+        }
+    }
+
+
+    protected override void OnMouseUp(MouseEventArgs e)
+	{
+		base.OnMouseUp(e);
+		if (_hoverRow != null)
+		{
+			_hoverRow.Up(e);
+		}
+		DragCell = null;
+	}
+
+	protected override void OnMouseLeave(EventArgs e)
+	{
+		HoverRow = null;
+	}
+
+	protected override void OnMouseDoubleClick(MouseEventArgs e)
+	{
+		if (e.Button == MouseButtons.Left && e.Y >= Top && e.Y < base.Height && _hoverRow != null)
+		{
+			OnRowDoubleClick(_hoverRow);
+		}
+	}
+
+	protected override void OnKeyUp(KeyEventArgs e)
+	{
+		if (e.KeyCode == Keys.Return && _currentRow != null)
+		{
+			EnterPressed?.Invoke(_currentRow);
+		}
+	}
+
+}
